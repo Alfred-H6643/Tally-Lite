@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* 移除 Recharts 圖表的 focus outline - 完全版 */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface,
+.recharts-surface *,
+.recharts-bar,
+.recharts-bar *,
+.recharts-bar-rectangle,
+.recharts-bar-rectangle *,
+.recharts-rectangle,
+.recharts-rectangle *,
+.recharts-cartesian-grid,
+.recharts-layer,
+.recharts-text,
+svg[class*="recharts"],
+svg[class*="recharts"] *,
+g[class*="recharts"],
+g[class*="recharts"] *,
+path[class*="recharts"],
+rect[class*="recharts"],
+text[class*="recharts"] {
+    outline: none !important;
+}
+
+/* Focus 狀態 */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus,
+.recharts-surface:focus,
+.recharts-surface *:focus,
+svg[class*="recharts"]:focus,
+svg[class*="recharts"] *:focus,
+g:focus,
+path:focus,
+rect:focus,
+text:focus {
+    outline: none !important;
+}
+
+/* 移除所有 SVG 元素的 focus outline */
+svg,
+svg *,
+svg:focus,
+svg *:focus {
+    outline: none !important;
+}

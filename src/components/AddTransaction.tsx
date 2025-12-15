@@ -38,14 +38,38 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
     const [page, setPage] = useState(0);
 
     const handleNumberClick = (num: string) => {
-        if (num === 'plus' || num === 'minus') return;
+        // Map 'plus'/'minus' to symbols
+        const val = num === 'plus' ? '+' : num === 'minus' ? '-' : num;
 
-        if (amount === '0' && num !== '.') {
-            setAmount(num);
+        if (amount === '0' && val !== '.') {
+            // Don't append operator to 0 if it's the first char, unless it's minus(?) - simplicity: replace 0
+            // But if input is '+', "0+" is weird. Let's allow replacing 0 with number, or appending operator to valid number.
+            if (val === '+' || val === '-') {
+                setAmount(prev => prev + val);
+            } else {
+                setAmount(val);
+            }
         } else {
-            if (num === '.' && amount.includes('.')) return;
-            if (amount.includes('.') && amount.split('.')[1].length >= 2) return;
-            setAmount((prev) => prev + num);
+            // Prevent multiple dots in specific number segment is hard with simple string, simplified check:
+            // Just prevent double operators or multiple dots in sequence for now.
+            const lastChar = amount.slice(-1);
+            const isOperator = (char: string) => char === '+' || char === '-';
+
+            if (val === '.') {
+                // simple check: if last char is dot or operator, ignore
+                if (lastChar === '.' || isOperator(lastChar)) return;
+                // strict check: find last operator, check if dot exists after it
+                const parts = amount.split(/[\+\-]/);
+                const currentNum = parts[parts.length - 1];
+                if (currentNum.includes('.')) return;
+            }
+
+            if (isOperator(val)) {
+                if (isOperator(lastChar)) return; // Don't allow ++ or +-
+                if (lastChar === '.') return; // Don't allow .+
+            }
+
+            setAmount((prev) => prev + val);
         }
     };
 
@@ -54,6 +78,43 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
     };
 
     const handleConfirm = () => {
+        // 1. Check if it needs calculation
+        if (amount.includes('+') || amount.includes('-')) {
+            try {
+                // Safe evaluation
+                // Remove trailing operators
+                let expr = amount;
+                if (['+', '-', '.'].includes(expr.slice(-1))) {
+                    expr = expr.slice(0, -1);
+                }
+
+                // Function to safely evaluate math expression string "100+20-5"
+                // const result = new Function('return ' + expr)(); // eval-like, maybe too risky? 
+                // Let's implement simple parser since we only have + and -
+
+                // Split by operators but keep them
+                // const parts = expr.split(/([\+\-])/);
+                // Actually, let's just use a simple reducer approach
+
+                // Better approach: replace sub-expressions
+                // Or simply:
+                const result = expr.split('+').reduce((sum, term) => {
+                    return sum + term.split('-').reduce((subSum, subTerm, idx) => {
+                        const val = parseFloat(subTerm) || 0;
+                        return idx === 0 ? subSum + val : subSum - val;
+                    }, 0);
+                }, 0);
+
+                // Round to reasonable decimals (e.g. 2)
+                const finalVal = Math.round(result * 100) / 100;
+                setAmount(finalVal.toString());
+                return; // Stop here to let user see result
+            } catch (e) {
+                console.error("Calculation error", e);
+                return;
+            }
+        }
+
         if (!selectedCategoryId) {
             alert('Please select a category');
             return;
@@ -340,7 +401,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                         placeholder="點選以編輯註記 (Click to edit note)"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        className="flex-1 bg-transparent text-sm text-gray-600 placeholder-gray-400 outline-none h-8"
+                        className="flex-1 bg-transparent text-base text-gray-600 placeholder-gray-400 outline-none h-8"
                     />
                 </div>
             </div>

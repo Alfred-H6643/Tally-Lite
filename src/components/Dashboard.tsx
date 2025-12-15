@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MonthPicker from './MonthPicker';
 
 const Dashboard: React.FC = () => {
-    const { transactions, categories, openModal, deleteTransaction } = useAppContext();
+    const { transactions, categories, subcategories, projectTags, openModal, deleteTransaction } = useAppContext();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
@@ -56,12 +56,36 @@ const Dashboard: React.FC = () => {
             <div className="bg-white z-10 sticky top-0 px-4 py-3 border-b border-gray-100">
                 <div className="flex justify-between items-center relative">
                     {/* Left: Close/Back (Placeholder to match screenshot) */}
-                    <button className="w-8 h-8 flex items-center justify-center text-gray-400">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
+                    {/* Left: Empty placeholder to keep layout balanced if needed, or just nothing. 
+                        User asked to remove X. Let's leave an empty div if alignment is needed, 
+                        BUT the request says "remove/hide". 
+                        The header uses 'justify-between'. If I remove left item, Center Date Pill might not be centered relative to screen.
+                        However, justify-between with 3 items puts one left, one center, one right.
+                        If I remove left, it becomes start-end spread? No, justify-between with 2 items pushes them to edges.
+                        Let's check code:
+                        <div className="flex justify-between items-center relative">
+                           {Left} {Center} {Right}
+                        </div>
+                        If I remove Left, Center will be on far Left?
+                        Wait, Date Pill is NOT absolute center. It's flex item.
+                        To keep Date Pill centered-ish or consistent, I should probably keep an invisible spacer or make it hidden.
+                        User said "hide or remove".
+                        I'll replace it with an invisible div of same size to maintain layout balance if that was the intent,
+                        OR just remove.
+                        Given "justify-between" on parent line 57, removing the first child will make the Date Pill the first child, so it will go to the LEFT.
+                        The Right total amount will go to RIGHT.
+                        The user probably wants the Date Pill centered?
+                        Actually, looking at the code:
+                        Line 57: flex justify-between items-center relative
+                        If I remove the first button, we have 2 items. Left=DatePill, Right=Total.
+                        DatePill will be on left edge. That might look weird if it was centered before.
+                        Let's see the previous code again.
+                        It had 3 items: X Button, Date Pill, Total Amount.
+                        It was: | X | Date | Total |  (roughly spread)
+                        If I replace X with <div className="w-8" /> it keeps the spacing.
+                        I'll do that.
+                    */}
+                    <div className="w-8"></div>
 
                     {/* Center: Date Pill */}
                     <div className="flex items-center bg-gray-100 rounded-full px-1 py-1">
@@ -114,7 +138,12 @@ const Dashboard: React.FC = () => {
                                 <div className="border-l-4 border-[#E0D0B0]">
                                     {trans.map((t, index) => {
                                         const category = categories.find(c => c.id === t.categoryId);
+                                        const subcategory = subcategories.find(s => s.id === t.subcategoryId);
                                         const isIncome = t.type === 'income';
+
+                                        // Project Tag (Show only the first one)
+                                        const projectTagId = t.tags && t.tags.length > 0 ? t.tags[0] : null;
+                                        const projectTag = projectTagId ? projectTags.find(p => p.id === projectTagId) : null;
 
                                         return (
                                             <div key={t.id} className="relative overflow-hidden group mb-[1px]">
@@ -158,8 +187,16 @@ const Dashboard: React.FC = () => {
 
                                                     {/* Content */}
                                                     <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                        <div className="text-gray-700 font-bold text-base truncate">
-                                                            {category?.name}
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <span className="text-gray-700 font-bold text-base truncate">
+                                                                {subcategory?.name || category?.name}
+                                                            </span>
+                                                            {projectTag && (
+                                                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium whitespace-nowrap border border-blue-200 shrink-0">
+                                                                    <span>🏷️</span>
+                                                                    {projectTag.name}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         {t.note && (
                                                             <div className="text-gray-400 text-xs truncate mt-0.5">

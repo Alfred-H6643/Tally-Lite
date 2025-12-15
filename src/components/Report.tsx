@@ -710,8 +710,18 @@ const Report: React.FC = () => {
                                                                                         className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs"
                                                                                     >
                                                                                         <div className="flex-1">
-                                                                                            <div className="text-gray-600">
+                                                                                            <div className="text-gray-600 flex items-center gap-2">
                                                                                                 {format(new Date(transaction.date), 'yyyy/MM/dd')}
+                                                                                                {transaction.tags && transaction.tags.length > 0 && (() => {
+                                                                                                    const tagId = transaction.tags[0];
+                                                                                                    const tag = projectTags.find(p => p.id === tagId);
+                                                                                                    return tag ? (
+                                                                                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium border border-blue-200">
+                                                                                                            <span>🏷️</span>
+                                                                                                            {tag.name}
+                                                                                                        </span>
+                                                                                                    ) : null;
+                                                                                                })()}
                                                                                             </div>
                                                                                             {transaction.note && (
                                                                                                 <div className="text-gray-400 truncate">{transaction.note}</div>

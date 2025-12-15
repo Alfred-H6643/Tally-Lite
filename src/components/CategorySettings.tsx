@@ -27,6 +27,7 @@ interface CategoryItemProps {
     subcategories: Subcategory[];
     onEdit: (category: Category) => void;
     onEditSubcategory: (subcategory: Subcategory) => void;
+    onAddSubcategory: (categoryId: string) => void;
     onToggleVisibility: (category: Category) => void;
 }
 
@@ -35,6 +36,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
     subcategories,
     onEdit,
     onEditSubcategory,
+    onAddSubcategory,
     onToggleVisibility
 }) => {
     const dragControls = useDragControls();
@@ -96,6 +98,13 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
                             {sub.name}
                         </button>
                     ))}
+                {/* Add Subcategory Button */}
+                <button
+                    onClick={() => onAddSubcategory(category.id)}
+                    className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 border border-transparent transition-colors flex items-center gap-1"
+                >
+                    <span>+</span> 新增
+                </button>
             </div>
         </Reorder.Item>
     );
@@ -108,7 +117,7 @@ const CategorySettings: React.FC = () => {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState<'add_category' | 'edit_category' | 'edit_subcategory' | 'delete_category_prompt'>('add_category');
+    const [modalMode, setModalMode] = useState<'add_category' | 'edit_category' | 'edit_subcategory' | 'add_subcategory' | 'delete_category_prompt'>('add_category');
     const [editingItem, setEditingItem] = useState<Category | Subcategory | null>(null);
     const [targetCategoryId, setTargetCategoryId] = useState<string>('');
 
@@ -150,6 +159,14 @@ const CategorySettings: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const openAddSubcategoryModal = (categoryId: string) => {
+        setModalMode('add_subcategory');
+        setFormName('');
+        setTargetCategoryId(categoryId); // Temporarily store parent ID in targetCategoryId
+        setEditingItem(null);
+        setIsModalOpen(true);
+    };
+
     const handleSave = () => {
         if (!formName.trim()) return;
 
@@ -174,6 +191,16 @@ const CategorySettings: React.FC = () => {
             updateSubcategory({
                 ...(editingItem as Subcategory),
                 name: formName,
+            });
+        } else if (modalMode === 'add_subcategory') {
+            const parentId = targetCategoryId;
+            addSubcategory({
+                id: uuidv4(),
+                parentId: parentId,
+                name: formName,
+                isHidden: false,
+                order: subcategories.filter(s => s.parentId === parentId).length,
+                yearlyBudget: 0
             });
         }
 
@@ -304,6 +331,7 @@ const CategorySettings: React.FC = () => {
                             subcategories={subcategories}
                             onEdit={openEditCategoryModal}
                             onEditSubcategory={openEditSubcategoryModal}
+                            onAddSubcategory={openAddSubcategoryModal}
                             onToggleVisibility={toggleVisibility}
                         />
                     ))}
@@ -336,8 +364,9 @@ const CategorySettings: React.FC = () => {
                             <h3 className="text-lg font-bold mb-4">
                                 {modalMode === 'add_category' ? '新增分類' :
                                     modalMode === 'edit_category' ? '編輯分類' :
-                                        modalMode === 'edit_subcategory' ? '編輯子分類' :
-                                            '刪除分類'}
+                                        modalMode === 'add_subcategory' ? '新增子分類' :
+                                            modalMode === 'edit_subcategory' ? '編輯子分類' :
+                                                '刪除分類'}
                             </h3>
 
                             {modalMode === 'delete_category_prompt' ? (
@@ -376,7 +405,7 @@ const CategorySettings: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="space-y-3 mb-6">
-                                        {modalMode !== 'edit_subcategory' && (
+                                        {modalMode !== 'edit_subcategory' && modalMode !== 'add_subcategory' && (
                                             <>
                                                 <div>
                                                     <label className="text-xs text-gray-500 block mb-1">圖示</label>
@@ -420,23 +449,10 @@ const CategorySettings: React.FC = () => {
                                                 placeholder="請輸入名稱"
                                             />
                                         </div>
-
-                                        {/* 預算設定提示 */}
-                                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                                            <div className="flex items-start gap-2">
-                                                <span className="text-blue-600">💡</span>
-                                                <div>
-                                                    <p className="text-xs text-blue-900 font-medium">預算設定已獨立</p>
-                                                    <p className="text-xs text-blue-700 mt-0.5">
-                                                        請至「預算設定」頁面管理年度預算
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div className="flex gap-2">
-                                        {modalMode !== 'add_category' && (
+                                        {modalMode !== 'add_category' && modalMode !== 'add_subcategory' && (
                                             <button
                                                 onClick={modalMode === 'edit_category' ? initiateDeleteCategory : handleDeleteSubcategory}
                                                 className="px-4 py-2 text-red-500 bg-red-50 rounded-lg"

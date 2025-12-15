@@ -71,15 +71,7 @@ const BudgetSettings: React.FC = () => {
         });
     };
 
-    // 打開新增預算 Modal
-    const openAddBudgetModal = (category: Category) => {
-        setModalMode('add');
-        setFormCategoryId(category.id);
-        setFormSubcategoryId('');
-        setFormAmount('0');
-        setEditingBudget(null);
-        setIsModalOpen(true);
-    };
+
 
     // 打開編輯預算 Modal
     const openEditBudgetModal = (budget: Budget) => {

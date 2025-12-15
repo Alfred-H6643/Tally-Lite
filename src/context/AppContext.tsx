@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, type ReactNode } from 'reac
 import type { Category, Subcategory, Transaction, ProjectTag, Budget } from '../types';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useFirestoreCollection } from '../hooks/useFirestore';
-import { orderBy } from 'firebase/firestore';
+import { orderBy, where } from 'firebase/firestore';
 
 interface AppContextType {
     categories: Category[];
@@ -31,7 +31,11 @@ interface AppContextType {
     getBudgetForSubcategory: (subcategoryId: string, year: number) => number;
     copyBudgetsToYear: (fromYear: number, toYear: number) => void;
 
-    // UI State
+    // Transaction Filtering (Dynamic Loading)
+    transactionFilter: { start: Date | null; end: Date | null };
+    setTransactionFilter: (range: { start: Date | null; end: Date | null }) => void;
+
+    // UI state
     isModalOpen: boolean;
     editingTransaction?: Transaction;
     openModal: (transaction?: Transaction) => void;
@@ -66,6 +70,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         [orderBy('order', 'asc')]
     );
 
+    // Dynamic Transaction Filtering State
+    // subscribedFilter determines what we FETCH from Firestore
+    // We only update this if the requested range is NOT covered by the current range
+    const [subscribedFilter, setSubscribedFilter] = useState<{ start: Date | null; end: Date | null }>({
+        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // Start of current month
+        end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0) // End of current month
+    });
+
+    // Also keep track of the "Requested" filter for debugging or other uses, though consumers actively manage their own filters.
+    // Actually we don't need to expose "active" filter if consumers filter locally.
+
+    // We expose setTransactionFilter to consumers
+    const setTransactionFilter = React.useCallback((range: { start: Date | null; end: Date | null }) => {
+        setSubscribedFilter(prev => {
+            const prevStart = prev.start?.getTime();
+            const prevEnd = prev.end?.getTime();
+            const newStart = range.start?.getTime();
+            const newEnd = range.end?.getTime();
+
+            // 1. Exact match check (Optimization 1)
+            if (prevStart === newStart && prevEnd === newEnd) {
+                return prev;
+            }
+
+            // 2. Superset check (Optimization 2)
+            // If the new requested range is COMPLETELY INSIDE the existing subscribed range,
+            // we DO NOT need to fetch. We can just keep the larger dataset loaded.
+            // Consumers (Dashboard/Report) must filter the data locally anyway.
+            if (prev.start && prev.end && range.start && range.end) {
+                if (range.start >= prev.start && range.end <= prev.end) {
+                    // console.log("Cache Hit: Requested range is subset of loaded range. Skipping fetch.");
+                    return prev;
+                }
+            }
+
+            return range;
+        });
+    }, []);
+
+    const transactionConstraints = React.useMemo(() => {
+        const constraints: any[] = [orderBy('date', 'desc')];
+        if (subscribedFilter.start) {
+            constraints.push(where('date', '>=', subscribedFilter.start));
+        }
+        if (subscribedFilter.end) {
+            constraints.push(where('date', '<=', subscribedFilter.end));
+        }
+        return constraints;
+    }, [subscribedFilter.start, subscribedFilter.end]);
+
     const {
         data: transactions,
         add: addTransactionFn,
@@ -73,7 +127,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         remove: deleteTransactionFn
     } = useFirestoreCollection<Transaction>(
         userId ? `users/${userId}/transactions` : '',
-        [orderBy('date', 'desc')]
+        transactionConstraints
     );
 
     const {
@@ -133,25 +187,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Helper functions
     const getBudgetForCategory = (categoryId: string, year: number): number => {
-        const budget = budgets.find(
+        // New Logic: Category Budget is the SUM of all its Subcategory Budgets.
+        // We ignore explicit parent-level budgets (where subcategoryId is null/undefined).
+        const subBudgets = budgets.filter(
             b => b.categoryId === categoryId &&
-                !b.subcategoryId &&
+                b.subcategoryId && // Must be a subcategory budget
                 b.year === year
         );
-        if (budget) return budget.amount;
-        const category = categories.find(c => c.id === categoryId);
-        if (category?.yearlyBudget) return category.yearlyBudget;
-        return 0;
+
+        const total = subBudgets.reduce((sum, b) => sum + b.amount, 0);
+        return total;
     };
 
     const getBudgetForSubcategory = (subcategoryId: string, year: number): number => {
-        const subcategory = subcategories.find(s => s.id === subcategoryId);
-        if (!subcategory) return 0;
         const budget = budgets.find(
-            b => b.subcategoryId === subcategoryId && b.year === year
+            b => b.subcategoryId === subcategoryId &&
+                b.year === year
         );
         if (budget) return budget.amount;
-        if (subcategory.yearlyBudget) return subcategory.yearlyBudget;
+        // Removed deprecated fallback to subcategory.yearlyBudget
         return 0;
     };
 
@@ -214,6 +268,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 getBudgetForCategory,
                 getBudgetForSubcategory,
                 copyBudgetsToYear,
+
+                transactionFilter: subscribedFilter,
+                setTransactionFilter,
             }}
         >
             {children}

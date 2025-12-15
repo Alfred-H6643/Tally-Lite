@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import MonthPicker from './MonthPicker';
+import { convertAmountToTWD } from '../utils/currency';
 
 type ViewMode = 'month' | 'year' | 'custom';
 type TransactionType = 'expense' | 'income';
@@ -138,7 +139,7 @@ const CustomBarLabel: React.FC<CustomBarLabelProps> = ({ x = 0, y = 0, width = 0
 };
 
 const Report: React.FC = () => {
-    const { transactions, categories, subcategories, projectTags, getBudgetForCategory, getBudgetForSubcategory } = useAppContext();
+    const { transactions, categories, subcategories, projectTags, getBudgetForCategory, getBudgetForSubcategory, openModal, setTransactionFilter } = useAppContext();
     const navigate = useNavigate();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -188,6 +189,16 @@ const Report: React.FC = () => {
         }
     }, [viewMode, currentMonth, appliedCustomRange]);
 
+    // Sync context filter with report range
+    React.useEffect(() => {
+        if (dateRange) {
+            setTransactionFilter({
+                start: dateRange.start,
+                end: dateRange.end
+            });
+        }
+    }, [dateRange, setTransactionFilter]);
+
     const handlePrev = () => {
         if (viewMode === 'year') {
             setCurrentMonth(subYears(currentMonth, 1));
@@ -205,6 +216,7 @@ const Report: React.FC = () => {
     };
 
     // Calculate Budget Logic (pro-rated by days) - Using year-based budget system
+    // Calculate Budget Logic
     const getCategoryBudget = (categoryId: string) => {
         // 根據報表的日期範圍確定年度 (使用範圍起始日期的年份)
         const year = dateRange.start.getFullYear();
@@ -213,6 +225,14 @@ const Report: React.FC = () => {
         const yearlyBudget = getBudgetForCategory(categoryId, year);
         if (yearlyBudget === 0) return null;
 
+        if (viewMode === 'month') {
+            return Math.round(yearlyBudget / 12);
+        }
+        if (viewMode === 'year') {
+            return yearlyBudget;
+        }
+
+        // Custom Mode: Pro-rate by days
         const daysInRange = differenceInDays(dateRange.end, dateRange.start) + 1;
         const dailyBudget = yearlyBudget / 365;
         const budgetForRange = Math.round(dailyBudget * daysInRange);
@@ -228,6 +248,14 @@ const Report: React.FC = () => {
         const yearlyBudget = getBudgetForSubcategory(subcategoryId, year);
         if (yearlyBudget === 0) return null;
 
+        if (viewMode === 'month') {
+            return Math.round(yearlyBudget / 12);
+        }
+        if (viewMode === 'year') {
+            return yearlyBudget;
+        }
+
+        // Custom Mode: Pro-rate by days
         const daysInRange = differenceInDays(dateRange.end, dateRange.start) + 1;
         const dailyBudget = yearlyBudget / 365;
         const budgetForRange = Math.round(dailyBudget * daysInRange);
@@ -272,12 +300,12 @@ const Report: React.FC = () => {
 
             const existing = data.find((d) => d.categoryId === category.id);
             if (existing) {
-                existing.value += t.amount;
+                existing.value += convertAmountToTWD(t.amount, t.currency || 'TWD');
             } else {
                 data.push({
                     categoryId: category.id,
                     name: category.name,
-                    value: t.amount,
+                    value: convertAmountToTWD(t.amount, t.currency || 'TWD'),
                     color: category.color,
                     icon: category.icon,
                     budget: getCategoryBudget(category.id)
@@ -303,12 +331,13 @@ const Report: React.FC = () => {
             if (!subcategory) return;
 
             const existing = subcategoryMap.get(subcategory.id);
+            const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
             if (existing) {
-                existing.total += t.amount;
+                existing.total += amountTWD;
             } else {
                 subcategoryMap.set(subcategory.id, {
                     subcategory,
-                    total: t.amount
+                    total: amountTWD
                 });
             }
         });
@@ -537,8 +566,11 @@ const Report: React.FC = () => {
                 <div className="p-4 pb-24">
                     {/* Chart Section */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
-                        <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize">
-                            {transactionType === 'expense' ? '費用' : '收入'} {viewMode} Overview
+                        <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize flex items-baseline gap-2">
+                            <span>{transactionType === 'expense' ? '費用' : '收入'} {viewMode} Overview</span>
+                            <span className="text-sm text-gray-500 font-normal">
+                                (Total: TWD ${totalExpenses.toLocaleString()})
+                            </span>
                         </h2>
                         <div style={{ height: `${chartHeight}px`, width: '100%' }} className="focus:outline-none">
                             {chartData.length > 0 ? (
@@ -549,7 +581,7 @@ const Report: React.FC = () => {
                                         margin={{ top: 20, right: 60, bottom: 20, left: 10 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                        <XAxis type="number" hide />
+                                        <XAxis type="number" domain={[0, 'dataMax']} hide />
                                         <YAxis
                                             dataKey="name"
                                             type="category"
@@ -568,7 +600,7 @@ const Report: React.FC = () => {
                                             )}
                                             cursor={{ fill: 'transparent' }}
                                         />
-                                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} isAnimationActive={false}>
                                             {chartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
@@ -707,7 +739,8 @@ const Report: React.FC = () => {
                                                                                 {subTransactions.map(transaction => (
                                                                                     <div
                                                                                         key={transaction.id}
-                                                                                        className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs"
+                                                                                        onClick={() => openModal(transaction)}
+                                                                                        className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer hover:bg-gray-100 transition-colors"
                                                                                     >
                                                                                         <div className="flex-1">
                                                                                             <div className="text-gray-600 flex items-center gap-2">
@@ -727,8 +760,15 @@ const Report: React.FC = () => {
                                                                                                 <div className="text-gray-400 truncate">{transaction.note}</div>
                                                                                             )}
                                                                                         </div>
-                                                                                        <div className="font-medium text-gray-700 ml-2">
-                                                                                            TWD ${transaction.amount.toLocaleString()}
+                                                                                        <div className="text-right ml-2">
+                                                                                            <div className="font-medium text-gray-700">
+                                                                                                {transaction.currency || 'TWD'} ${transaction.amount.toLocaleString()}
+                                                                                            </div>
+                                                                                            {transaction.currency && transaction.currency !== 'TWD' && (
+                                                                                                <div className="text-[10px] text-gray-400">
+                                                                                                    ≈ TWD ${convertAmountToTWD(transaction.amount, transaction.currency).toLocaleString()}
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                     </div>
                                                                                 ))}

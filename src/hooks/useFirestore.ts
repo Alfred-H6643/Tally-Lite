@@ -63,7 +63,8 @@ export const useFirestoreCollection = <T extends { id: string }>(
         );
 
         return unsubscribe;
-    }, [collectionPath]); // Re-run if path changes (e.g. user ID changes)
+        return unsubscribe;
+    }, [collectionPath, constraints]); // Re-run if path or constraints change
 
     // CRUD Helper functions
     const add = async (item: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {

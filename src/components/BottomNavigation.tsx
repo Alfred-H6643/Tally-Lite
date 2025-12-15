@@ -48,8 +48,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ onAddClick }) => {
 
             {/* Right: Menu/Settings */}
             <button
-                onClick={() => navigate('/settings')}
-                className="w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors text-gray-400"
+                onClick={() => navigate(location.pathname === '/settings' ? '/' : '/settings')}
+                className={`w-10 h-10 flex items-center justify-center rounded-full active:bg-gray-100 transition-colors ${location.pathname.startsWith('/settings') ? 'text-blue-500 bg-blue-50' : 'text-gray-400'}`}
             >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="3" y1="12" x2="21" y2="12" />

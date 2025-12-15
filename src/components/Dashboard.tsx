@@ -1,15 +1,24 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { format, parseISO, addMonths, subMonths, isSameMonth } from 'date-fns';
+import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import type { Transaction } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import MonthPicker from './MonthPicker';
+import { convertAmountToTWD } from '../utils/currency';
 
 const Dashboard: React.FC = () => {
-    const { transactions, categories, subcategories, projectTags, openModal, deleteTransaction } = useAppContext();
+    const { transactions, categories, subcategories, projectTags, openModal, deleteTransaction, setTransactionFilter } = useAppContext();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+    // Sync context filter with local month
+    React.useEffect(() => {
+        setTransactionFilter({
+            start: startOfMonth(currentMonth),
+            end: endOfMonth(currentMonth)
+        });
+    }, [currentMonth, setTransactionFilter]);
 
     const handlePrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
     const handleNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -25,7 +34,8 @@ const Dashboard: React.FC = () => {
     // Calculate total (Net: Income - Expense)
     const totalAmount = useMemo(() => {
         return monthlyTransactions.reduce((acc, t) => {
-            return t.type === 'income' ? acc + t.amount : acc - t.amount;
+            const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
+            return t.type === 'income' ? acc + amountTWD : acc - amountTWD;
         }, 0);
     }, [monthlyTransactions]);
 
@@ -38,7 +48,8 @@ const Dashboard: React.FC = () => {
             if (!groups[dateStr]) groups[dateStr] = { transactions: [], total: 0 };
             groups[dateStr].transactions.push(t);
             // Daily total (Net)
-            groups[dateStr].total += t.type === 'income' ? t.amount : -t.amount;
+            const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
+            groups[dateStr].total += t.type === 'income' ? amountTWD : -amountTWD;
         });
         // Sort dates descending
         return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
@@ -129,8 +140,8 @@ const Dashboard: React.FC = () => {
                                     <span className="text-gray-500 text-sm font-medium">
                                         {format(parseISO(dateStr), 'yyyy/MM/dd')}
                                     </span>
-                                    <span className="text-[#E3B873] font-bold text-sm">
-                                        ${total.toLocaleString()}
+                                    <span className={`${total > 0 ? 'text-green-600' : 'text-[#E3B873]'} font-bold text-sm`}>
+                                        ${Math.abs(total).toLocaleString()}
                                     </span>
                                 </div>
 
@@ -152,7 +163,7 @@ const Dashboard: React.FC = () => {
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            if (window.confirm('Delete this transaction?')) {
+                                                            if (window.confirm('確定要刪除這筆交易嗎？')) {
                                                                 deleteTransaction(t.id);
                                                             }
                                                         }}
@@ -167,7 +178,7 @@ const Dashboard: React.FC = () => {
                                                 <motion.div
                                                     drag="x"
                                                     dragConstraints={{ left: -80, right: 0 }}
-                                                    dragElastic={0.1}
+                                                    dragElastic={{ left: 0.1, right: 0 }}
                                                     onDragEnd={() => {
                                                         // Simple snap logic handled by constraints, but if we want 'swipe to delete' logic:
                                                         // For now, constraints allow revealing the button. User taps button to delete.

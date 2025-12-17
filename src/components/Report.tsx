@@ -55,7 +55,7 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, transact
         return (
             <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100 z-50">
                 <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">{data.icon}</span>
+                    <span className="text-xl" style={{ color: data.color }}>{data.icon}</span>
                     <span className="font-bold text-gray-800">{data.name}</span>
                 </div>
                 <div className="space-y-1 text-sm">
@@ -640,7 +640,7 @@ const Report: React.FC = () => {
                                         >
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: `${item.color}20` }}>
+                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: `${item.color}20`, color: item.color }}>
                                                         {item.icon}
                                                     </div>
                                                     <div>

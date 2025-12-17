@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth, isToday } from 'date-fns';
 import type { Transaction } from '../types';
 import { motion } from 'framer-motion';
 
@@ -199,8 +199,13 @@ const Dashboard: React.FC = () => {
                                     }}
                                     className="relative z-10 flex items-center justify-between py-2 pl-4 pr-3 bg-stone-100 border-b border-gray-100 mb-[1px]"
                                 >
-                                    <span className="text-gray-500 text-sm font-medium">
+                                    <span className={`text-sm font-medium flex items-center gap-2 ${isToday(parseISO(dateStr)) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
                                         {format(parseISO(dateStr), 'yyyy/MM/dd')}
+                                        {isToday(parseISO(dateStr)) && (
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-500">
+                                                <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.62.829.799 1.654 1.38 2.274 1.765a11.255 11.255 0 001.056.581c.01.002.016.002.016.002s.11.02.308-.066l.002-.001.006-.003.018-.008zM10 13a4 4 0 100-8 4 4 0 000 8z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
                                     </span>
                                     <div className="flex items-center gap-3 text-xs">
                                         {income > 0 && (
@@ -209,7 +214,7 @@ const Dashboard: React.FC = () => {
                                             </span>
                                         )}
                                         <span className="text-[#E3B873] font-medium">
-                                            -${expense.toLocaleString()}
+                                            ${expense.toLocaleString()}
                                         </span>
                                     </div>
                                 </motion.div>
@@ -257,9 +262,9 @@ const Dashboard: React.FC = () => {
                                                 {/* Icon */}
                                                 <div
                                                     className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-4 shrink-0 shadow-sm"
-                                                    style={{ backgroundColor: category?.color || '#eee' }}
+                                                    style={{ backgroundColor: category?.color ? `${category.color}20` : '#eee', color: category?.color }}
                                                 >
-                                                    <span className="text-white drop-shadow-md filter">{category?.icon}</span>
+                                                    <span className="text-xl">{category?.icon}</span>
                                                 </div>
 
                                                 {/* Content */}

@@ -363,9 +363,9 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                                 >
                                     <div
                                         className="w-11 h-11 rounded-full flex items-center justify-center text-xl"
-                                        style={{ backgroundColor: `${c.color}20` }}
+                                        style={{ backgroundColor: `${c.color}20`, color: c.color }}
                                     >
-                                        <span className="grayscale opacity-90">
+                                        <span className="">
                                             {c.icon}
                                         </span>
                                     </div>

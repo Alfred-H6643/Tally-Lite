@@ -19,6 +19,18 @@ const CATEGORY_COLORS = [
     { name: '翠綠', value: '#2ECC71' },
     { name: '橘紅', value: '#E74C3C' },
     { name: '深綠', value: '#27AE60' },
+    { name: '深橘', value: '#D35400' },
+    { name: '靛藍', value: '#3F51B5' },
+    { name: '棕色', value: '#8D6E63' },
+    { name: '藍灰', value: '#607D8B' },
+    { name: '桃紅', value: '#FF4081' },
+    { name: '萊姆', value: '#CDDC39' },
+    { name: '深紫', value: '#673AB7' },
+    { name: '中灰', value: '#7F8C8D' },
+    { name: '鴨綠', value: '#009688' },
+    { name: '淺藍', value: '#03A9F4' },
+    { name: '琥珀', value: '#FFC107' },
+    { name: '藕荷', value: '#BA68C8' },
 ];
 
 // 單獨的 CategoryItem 組件以正確使用 useDragControls
@@ -53,7 +65,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
                 <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => onEdit(category)}>
                     <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                        style={{ backgroundColor: `${category.color}20` }}
+                        style={{ backgroundColor: `${category.color}20`, color: category.color }}
                     >
                         {category.icon}
                     </div>

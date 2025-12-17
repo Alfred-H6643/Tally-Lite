@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NumberPad from './NumberPad';
 import { useAppContext } from '../context/AppContext';
 import type { Transaction, TransactionType } from '../types';
@@ -14,7 +14,7 @@ interface AddTransactionProps {
 const ITEMS_PER_PAGE = 10;
 
 const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransaction }) => {
-    const { addTransaction, updateTransaction, categories, subcategories, projectTags } = useAppContext();
+    const { addTransaction, updateTransaction, categories, subcategories, projectTags, initialDate } = useAppContext();
 
     // Initialize State from initialTransaction or default
     const [amount, setAmount] = useState(initialTransaction ? initialTransaction.amount.toString() : '0');
@@ -26,8 +26,12 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
 
     // UI State
     const [note, setNote] = useState(initialTransaction?.note || '');
-    const [type] = useState<TransactionType>(initialTransaction?.type || 'expense');
-    const [date, setDate] = useState(initialTransaction ? format(new Date(initialTransaction.date), 'yyyy-MM-dd') : new Date().toISOString().split('T')[0]);
+    const [type, setType] = useState<TransactionType>(initialTransaction?.type || 'expense');
+    const [date, setDate] = useState(() => {
+        if (initialTransaction) return format(new Date(initialTransaction.date), 'yyyy-MM-dd');
+        if (initialDate) return format(initialDate, 'yyyy-MM-dd');
+        return new Date().toISOString().split('T')[0];
+    });
     const [showProjectSelector, setShowProjectSelector] = useState(false);
 
     // Currency State
@@ -152,10 +156,50 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         );
     };
 
+    // Keyboard Support
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Check if user is typing in the note input
+            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            if (e.key >= '0' && e.key <= '9') {
+                handleNumberClick(e.key);
+            } else if (e.key === '.') {
+                handleNumberClick('.');
+            } else if (e.key === '+') {
+                handleNumberClick('plus');
+            } else if (e.key === '-') {
+                handleNumberClick('minus');
+            } else if (e.key === 'Backspace') {
+                handleDelete();
+            } else if (e.key === 'Enter') {
+                handleConfirm();
+            } else if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [amount, note]); // Dependencies for closure values if needed, though mostly using functional updates or stable refs is better. 
+    // handleNumberClick uses amount, so we strictly need it in deps, or use functional updates everywhere.
+    // handleNumberClick ALREADY uses setAmount(prev => ...), except for the validation logic.
+    // The validation logic (isOperator etc) uses 'amount' state. So we need 'amount' in dependency array.
+
+
     // Filtered Content Logic
     const currentCategories = categories
-        .filter((c) => c.type === type && !c.isHidden)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
+        .filter((c) => !c.isHidden) // Show all visible categories
+        .sort((a, b) => {
+            // Sort by Type first (Expense -> Income)
+            if (a.type !== b.type) {
+                return a.type === 'expense' ? -1 : 1;
+            }
+            // Then by Order
+            return (a.order || 0) - (b.order || 0);
+        });
 
     const totalPages = Math.ceil(currentCategories.length / ITEMS_PER_PAGE);
     const visibleCategories = currentCategories.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
@@ -180,6 +224,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                         <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
                 </button>
+
                 {/* ... (rest of header same, omitted for brevity in thought, but must replace fully if context requires) ... */}
 
                 {/* Actually, to be safe with replace_file_content context matching, I should stick to the target block exactly. */}
@@ -307,6 +352,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                                     key={c.id}
                                     onClick={() => {
                                         setSelectedCategoryId(c.id);
+                                        setType(c.type); // Auto-set transaction type based on category
                                         // Auto-select 'Uncategorized' if exists, else first
                                         const subs = subcategories.filter(s => s.parentId === c.id);
                                         const uncategorized = subs.find(s => s.name === 'Uncategorized') || subs[0];

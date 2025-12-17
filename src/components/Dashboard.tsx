@@ -2,15 +2,41 @@ import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import type { Transaction } from '../types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 import MonthPicker from './MonthPicker';
 import { convertAmountToTWD } from '../utils/currency';
 
 const Dashboard: React.FC = () => {
-    const { transactions, categories, subcategories, projectTags, openModal, deleteTransaction, setTransactionFilter } = useAppContext();
+    const { transactions, categories, subcategories, projectTags, openModal, deleteTransaction, setTransactionFilter, lastModifiedTransactionId } = useAppContext();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+    // Auto-scroll to last modified transaction
+    React.useEffect(() => {
+        if (!lastModifiedTransactionId) return;
+
+        const targetTransaction = transactions.find(t => t.id === lastModifiedTransactionId);
+        if (!targetTransaction) return;
+
+        const targetDate = new Date(targetTransaction.date);
+
+        // If not in current month, switch month
+        if (!isSameMonth(targetDate, currentMonth)) {
+            setCurrentMonth(targetDate);
+        }
+
+        // Delay scroll to allow render
+        setTimeout(() => {
+            const element = document.getElementById(`transaction-${lastModifiedTransactionId}`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Optional: Add a flash highlight effect
+                element.classList.add('bg-yellow-50');
+                setTimeout(() => element.classList.remove('bg-yellow-50'), 2000);
+            }
+        }, 300); // 300ms delay to ensure month switch render or modal close animation
+    }, [lastModifiedTransactionId, transactions]);
 
     // Sync context filter with local month
     React.useEffect(() => {
@@ -32,24 +58,36 @@ const Dashboard: React.FC = () => {
     }, [transactions, currentMonth]);
 
     // Calculate total (Net: Income - Expense)
-    const totalAmount = useMemo(() => {
+    // Calculate total (Split: Income, Expense, Net)
+    const monthlyTotals = useMemo(() => {
         return monthlyTransactions.reduce((acc, t) => {
             const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
-            return t.type === 'income' ? acc + amountTWD : acc - amountTWD;
-        }, 0);
+            if (t.type === 'income') {
+                acc.income += amountTWD;
+            } else {
+                acc.expense += amountTWD;
+            }
+            acc.net = acc.income - acc.expense;
+            return acc;
+        }, { income: 0, expense: 0, net: 0 });
     }, [monthlyTransactions]);
 
 
     // Group by Date for List
+    // Group by Date for List
     const groupedTransactions = useMemo(() => {
-        const groups: { [key: string]: { transactions: Transaction[]; total: number } } = {};
+        const groups: { [key: string]: { transactions: Transaction[]; income: number; expense: number } } = {};
         monthlyTransactions.forEach((t) => {
             const dateStr = format(new Date(t.date), 'yyyy-MM-dd');
-            if (!groups[dateStr]) groups[dateStr] = { transactions: [], total: 0 };
+            if (!groups[dateStr]) groups[dateStr] = { transactions: [], income: 0, expense: 0 };
             groups[dateStr].transactions.push(t);
-            // Daily total (Net)
+
             const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
-            groups[dateStr].total += t.type === 'income' ? amountTWD : -amountTWD;
+            if (t.type === 'income') {
+                groups[dateStr].income += amountTWD;
+            } else {
+                groups[dateStr].expense += amountTWD;
+            }
         });
         // Sort dates descending
         return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
@@ -115,120 +153,153 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Right: Total Amount (Net) */}
-                    <div className={`font-bold text-lg ${totalAmount >= 0 ? 'text-green-600' : 'text-[#E3B873]'}`}>
-                        ${Math.abs(totalAmount).toLocaleString()}
+                    {/* Right: Total Amount (Split) */}
+                    <div className="flex flex-col items-end text-xs">
+                        {monthlyTotals.income > 0 && (
+                            <div className="text-green-500 font-medium">
+                                <span className="text-[10px] text-gray-400 mr-1">收</span>
+                                +${Math.abs(monthlyTotals.income).toLocaleString()}
+                            </div>
+                        )}
+                        <div className="text-[#E3B873] font-medium">
+                            <span className="text-[10px] text-gray-400 mr-1">支</span>
+                            ${Math.abs(monthlyTotals.expense).toLocaleString()}
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Transaction List */}
             <div className="flex-1 overflow-y-auto px-4 pb-24 pt-2">
-                <AnimatePresence mode='popLayout'>
-                    {groupedTransactions.map(([dateStr, { transactions: trans, total }], groupIndex) => (
-                        <motion.div
-                            key={dateStr}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ delay: groupIndex * 0.05 }}
-                            className="mb-1"
-                        >
+                {groupedTransactions.map(([dateStr, { transactions: trans, income, expense }]) => (
+                    <div key={dateStr} className="mb-1">
+                        {/* Date Header Group */}
+                        <div className="flex flex-col">
                             {/* Date Header Group */}
-                            <div className="flex flex-col">
-                                {/* Date Strip & Header */}
-                                <div className="flex items-center justify-between py-2 pl-4 pr-2 bg-[#FDFBF7] border-l-4 border-[#E0D0B0] mb-[1px]">
+                            <div className="flex flex-col relative overflow-hidden">
+                                {/* Background Add Button (Left) */}
+                                <div className="absolute inset-0 bg-[#E3B873] flex items-center justify-start px-5 z-0">
+                                    <button
+                                        className="text-white font-medium flex items-center gap-1"
+                                    >
+                                        <span className="text-2xl font-bold">+</span>
+                                    </button>
+                                </div>
+
+                                {/* Date Strip & Header (Draggable) */}
+                                <motion.div
+                                    drag="x"
+                                    dragConstraints={{ left: 0, right: 120 }} // Drag right to reveal left
+                                    dragElastic={{ left: 0, right: 0.1 }}
+                                    onDragEnd={(_, info) => {
+                                        // If dragged far enough right (positive x), trigger add
+                                        if (info.offset.x > 80) {
+                                            openModal(undefined, parseISO(dateStr));
+                                        }
+                                    }}
+                                    className="relative z-10 flex items-center justify-between py-2 pl-4 pr-3 bg-stone-100 border-b border-gray-100 mb-[1px]"
+                                >
                                     <span className="text-gray-500 text-sm font-medium">
                                         {format(parseISO(dateStr), 'yyyy/MM/dd')}
                                     </span>
-                                    <span className={`${total > 0 ? 'text-green-600' : 'text-[#E3B873]'} font-bold text-sm`}>
-                                        ${Math.abs(total).toLocaleString()}
-                                    </span>
-                                </div>
+                                    <div className="flex items-center gap-3 text-xs">
+                                        {income > 0 && (
+                                            <span className="text-green-500 font-medium">
+                                                +${income.toLocaleString()}
+                                            </span>
+                                        )}
+                                        <span className="text-[#E3B873] font-medium">
+                                            -${expense.toLocaleString()}
+                                        </span>
+                                    </div>
+                                </motion.div>
+                            </div>
 
-                                {/* Transactions */}
-                                <div className="border-l-4 border-[#E0D0B0]">
-                                    {trans.map((t, index) => {
-                                        const category = categories.find(c => c.id === t.categoryId);
-                                        const subcategory = subcategories.find(s => s.id === t.subcategoryId);
-                                        const isIncome = t.type === 'income';
+                            {/* Transactions */}
+                            <div className="">
+                                {trans.map((t, index) => {
+                                    const category = categories.find(c => c.id === t.categoryId);
+                                    const subcategory = subcategories.find(s => s.id === t.subcategoryId);
+                                    const isIncome = t.type === 'income';
 
-                                        // Project Tag (Show only the first one)
-                                        const projectTagId = t.tags && t.tags.length > 0 ? t.tags[0] : null;
-                                        const projectTag = projectTagId ? projectTags.find(p => p.id === projectTagId) : null;
+                                    // Project Tag (Show only the first one)
+                                    const projectTagId = t.tags && t.tags.length > 0 ? t.tags[0] : null;
+                                    const projectTag = projectTagId ? projectTags.find(p => p.id === projectTagId) : null;
 
-                                        return (
-                                            <div key={t.id} className="relative overflow-hidden group mb-[1px]">
-                                                {/* Background Delete Button */}
-                                                <div className="absolute inset-0 bg-red-500 flex items-center justify-end px-4 z-0">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (window.confirm('確定要刪除這筆交易嗎？')) {
-                                                                deleteTransaction(t.id);
-                                                            }
-                                                        }}
-                                                        className="text-white font-medium flex items-center gap-1"
-                                                    >
-                                                        <span>🗑️</span>
-                                                        <span className="text-xs">刪除</span>
-                                                    </button>
+                                    return (
+                                        <div key={t.id} className="relative overflow-hidden group mb-[1px]">
+                                            {/* Background Delete Button */}
+                                            <div className="absolute inset-0 bg-red-500 flex items-center justify-end px-4 z-0">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm('確定要刪除這筆交易嗎？')) {
+                                                            deleteTransaction(t.id);
+                                                        }
+                                                    }}
+                                                    className="text-white font-medium flex items-center gap-1"
+                                                >
+                                                    <span>🗑️</span>
+                                                    <span className="text-xs">刪除</span>
+                                                </button>
+                                            </div>
+
+                                            {/* Foreground Content (Draggable) */}
+                                            <motion.div
+                                                id={`transaction-${t.id}`}
+                                                drag="x"
+                                                dragConstraints={{ left: -80, right: 0 }}
+                                                dragElastic={{ left: 0.1, right: 0 }}
+                                                whileTap={{ cursor: 'grabbing' }}
+                                                className={`relative z-10 flex items-center px-4 py-3 bg-[#F9F9F9] ${index !== trans.length - 1 ? 'border-b border-gray-100' : ''}`}
+                                                style={{ x: 0 }}
+                                            >
+                                                {/* Icon */}
+                                                <div
+                                                    className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-4 shrink-0 shadow-sm"
+                                                    style={{ backgroundColor: category?.color || '#eee' }}
+                                                >
+                                                    <span className="text-white drop-shadow-md filter">{category?.icon}</span>
                                                 </div>
 
-                                                {/* Foreground Content (Draggable) */}
-                                                <motion.div
-                                                    drag="x"
-                                                    dragConstraints={{ left: -80, right: 0 }}
-                                                    dragElastic={{ left: 0.1, right: 0 }}
-                                                    onDragEnd={() => {
-                                                        // Simple snap logic handled by constraints, but if we want 'swipe to delete' logic:
-                                                        // For now, constraints allow revealing the button. User taps button to delete.
-                                                    }}
-                                                    whileTap={{ cursor: 'grabbing' }}
-                                                    onClick={() => openModal(t)}
-                                                    className={`relative z-10 flex items-center px-4 py-3 bg-[#F9F9F9] ${index !== trans.length - 1 ? 'border-b border-gray-100' : ''}`}
-                                                    style={{ x: 0 }}
-                                                >
-                                                    {/* Icon */}
-                                                    <div
-                                                        className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-4 shrink-0 shadow-sm"
-                                                        style={{ backgroundColor: category?.color || '#eee' }}
-                                                    >
-                                                        <span className="text-white drop-shadow-md filter">{category?.icon}</span>
-                                                    </div>
-
-                                                    {/* Content */}
-                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <span className="text-gray-700 font-bold text-base truncate">
-                                                                {subcategory?.name || category?.name}
+                                                {/* Content */}
+                                                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span
+                                                            className="text-gray-700 font-bold text-base truncate cursor-pointer hover:underline decoration-gray-400 underline-offset-2"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openModal(t);
+                                                            }}
+                                                        >
+                                                            {subcategory?.name || category?.name}
+                                                        </span>
+                                                        {projectTag && (
+                                                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium whitespace-nowrap border border-blue-200 shrink-0">
+                                                                <span>🏷️</span>
+                                                                {projectTag.name}
                                                             </span>
-                                                            {projectTag && (
-                                                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium whitespace-nowrap border border-blue-200 shrink-0">
-                                                                    <span>🏷️</span>
-                                                                    {projectTag.name}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {t.note && (
-                                                            <div className="text-gray-400 text-xs truncate mt-0.5">
-                                                                {t.note}
-                                                            </div>
                                                         )}
                                                     </div>
+                                                    {t.note && (
+                                                        <div className="text-gray-400 text-xs truncate mt-0.5">
+                                                            {t.note}
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                                    {/* Amount */}
-                                                    <div className={`font-bold text-base ml-2 ${isIncome ? 'text-green-600' : 'text-gray-500'}`}>
-                                                        {isIncome ? '+' : ''}${t.amount.toLocaleString()}
-                                                    </div>
-                                                </motion.div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                                {/* Amount */}
+                                                <div className={`font-bold text-base ml-2 ${isIncome ? 'text-green-500' : 'text-[#E3B873]'}`}>
+                                                    {isIncome ? '+' : ''}${t.amount.toLocaleString()}
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                        </div>
+                    </div>
+                ))}
 
                 {groupedTransactions.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-60 text-gray-300">
@@ -244,7 +315,7 @@ const Dashboard: React.FC = () => {
                 currentDate={currentMonth}
                 onSelect={setCurrentMonth}
             />
-        </motion.div>
+        </motion.div >
     );
 };
 

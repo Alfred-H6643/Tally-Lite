@@ -38,8 +38,10 @@ interface AppContextType {
     // UI state
     isModalOpen: boolean;
     editingTransaction?: Transaction;
-    openModal: (transaction?: Transaction) => void;
+    initialDate?: Date;
+    openModal: (transaction?: Transaction, date?: Date) => void;
     closeModal: () => void;
+    lastModifiedTransactionId: string | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -153,8 +155,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const addTransaction = (transaction: Transaction) => {
         const { id, ...data } = transaction;
         addTransactionFn(data);
+        setLastModifiedTransactionId(transaction.id);
     };
-    const updateTransaction = (transaction: Transaction) => updateTransactionFn(transaction.id, transaction);
+    const updateTransaction = (transaction: Transaction) => {
+        updateTransactionFn(transaction.id, transaction);
+        setLastModifiedTransactionId(transaction.id);
+    };
     const deleteTransaction = (id: string) => deleteTransactionFn(id);
 
     const addCategory = (category: Category) => {
@@ -224,9 +230,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Modal Global State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>(undefined);
+    const [initialDate, setInitialDate] = useState<Date | undefined>(undefined);
+    const [lastModifiedTransactionId, setLastModifiedTransactionId] = useState<string | null>(null);
 
-    const openModal = (transaction?: Transaction) => {
+    const openModal = (transaction?: Transaction, date?: Date) => {
         setEditingTransaction(transaction);
+        setInitialDate(date);
         setIsModalOpen(true);
     };
 
@@ -246,8 +255,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                 isModalOpen,
                 editingTransaction,
+                initialDate,
                 openModal,
                 closeModal,
+                lastModifiedTransactionId,
 
                 addTransaction,
                 deleteTransaction,

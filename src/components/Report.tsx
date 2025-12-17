@@ -61,7 +61,7 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, transact
                 <div className="space-y-1 text-sm">
                     <div className="flex justify-between gap-4">
                         <span className="text-gray-500">{transactionType === 'expense' ? '費用' : '收入'}:</span>
-                        <span className="font-bold text-gray-800">TWD ${data.value.toLocaleString()}</span>
+                        <span className={`font-bold ${transactionType === 'income' ? 'text-green-500' : 'text-[#E3B873]'}`}>TWD ${data.value.toLocaleString()}</span>
                     </div>
                     {budget !== null && remaining !== null && (
                         <>
@@ -568,7 +568,7 @@ const Report: React.FC = () => {
                     <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize flex items-baseline gap-2">
                             <span>{transactionType === 'expense' ? '費用' : '收入'} {viewMode} Overview</span>
-                            <span className="text-sm text-gray-500 font-normal">
+                            <span className={`text-sm font-normal ${transactionType === 'income' ? 'text-green-500' : 'text-[#E3B873]'}`}>
                                 (Total: TWD ${totalExpenses.toLocaleString()})
                             </span>
                         </h2>

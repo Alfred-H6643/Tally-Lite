@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, useRoutes, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
@@ -19,18 +19,20 @@ const AuthenticatedApp: React.FC = () => {
   const { isModalOpen, closeModal, openModal, editingTransaction } = useAppContext();
   const location = useLocation();
 
+  const element = useRoutes([
+    { path: "/", element: <Dashboard /> },
+    { path: "/report", element: <Report /> },
+    { path: "/settings", element: <Settings /> },
+    { path: "/settings/categories", element: <CategorySettings /> },
+    { path: "/settings/budgets", element: <BudgetSettings /> },
+    { path: "/settings/projects", element: <ProjectSettings /> },
+  ]);
+
   return (
     <div className="max-w-md mx-auto h-screen bg-gray-50 flex flex-col relative overflow-hidden shadow-2xl">
       <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode='wait'>
-          <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/report" element={<Report />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/categories" element={<CategorySettings />} />
-            <Route path="/settings/budgets" element={<BudgetSettings />} />
-            <Route path="/settings/projects" element={<ProjectSettings />} />
-          </Routes>
+          {element && React.cloneElement(element, { key: location.pathname })}
         </AnimatePresence>
 
         <AnimatePresence>

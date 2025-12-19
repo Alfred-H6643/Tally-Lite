@@ -63,7 +63,6 @@ export const useFirestoreCollection = <T extends { id: string }>(
         );
 
         return unsubscribe;
-        return unsubscribe;
     }, [collectionPath, constraints]); // Re-run if path or constraints change
 
     // CRUD Helper functions

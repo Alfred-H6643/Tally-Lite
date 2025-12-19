@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
 
 interface BatchDeleteModalProps {

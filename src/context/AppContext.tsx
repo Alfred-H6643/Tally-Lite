@@ -4,7 +4,7 @@ import type { Category, Subcategory, Transaction, ProjectTag, Budget } from '../
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useFirestoreCollection } from '../hooks/useFirestore';
 import { db } from '../services/firebase';
-import { doc, getDoc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot } from 'firebase/firestore';
 
 export interface UserProfile {
     displayName: string;

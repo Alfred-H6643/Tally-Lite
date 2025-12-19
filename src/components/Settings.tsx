@@ -5,7 +5,7 @@ import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useAppContext } from '../context/AppContext';
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
-import type { Transaction, TransactionType } from '../types';
+import type { Transaction } from '../types';
 import ExportModal from './ExportModal';
 import BatchDeleteModal from './BatchDeleteModal';
 

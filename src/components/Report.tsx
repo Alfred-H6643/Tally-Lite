@@ -416,7 +416,7 @@ const Report: React.FC = () => {
                                 onClick={() => setViewMode(mode)}
                                 className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${viewMode === mode
                                     ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    : 'text-gray-500 active:text-gray-700'
                                     }`}
                             >
                                 {mode === 'month' ? '月' : mode === 'year' ? '年' : '自訂'}
@@ -455,20 +455,20 @@ const Report: React.FC = () => {
                         ) : (
                             // 月/年模式：日期選擇器 - 與自訂模式同樣高度（h-10）
                             <div className="flex items-center justify-between h-10 bg-gray-50 border border-gray-200 rounded-lg px-3">
-                                <button onClick={handlePrev} className="p-1 text-gray-500 hover:bg-gray-200 rounded-lg transition-colors">
+                                <button onClick={handlePrev} className="p-1 text-gray-500 active:bg-gray-200 rounded-lg transition-colors">
                                     ←
                                 </button>
                                 <button
                                     onClick={() => {
                                         if (viewMode === 'month') setIsDatePickerOpen(true);
                                     }}
-                                    className={`flex-1 text-center px-4 ${viewMode === 'month' ? 'cursor-pointer hover:bg-gray-100 rounded-lg' : ''}`}
+                                    className={`flex-1 text-center px-4 ${viewMode === 'month' ? 'cursor-pointer active:bg-gray-100 rounded-lg' : ''}`}
                                 >
                                     <span className="text-sm font-medium text-gray-800">
                                         {dateRange.label}
                                     </span>
                                 </button>
-                                <button onClick={handleNext} className="p-1 text-gray-500 hover:bg-gray-200 rounded-lg transition-colors">
+                                <button onClick={handleNext} className="p-1 text-gray-500 active:bg-gray-200 rounded-lg transition-colors">
                                     →
                                 </button>
                             </div>
@@ -481,7 +481,7 @@ const Report: React.FC = () => {
                             onClick={() => setTransactionType('expense')}
                             className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${transactionType === 'expense'
                                 ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
+                                : 'text-gray-500 active:text-gray-700'
                                 }`}
                         >
                             費用
@@ -490,7 +490,7 @@ const Report: React.FC = () => {
                             onClick={() => setTransactionType('income')}
                             className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${transactionType === 'income'
                                 ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
+                                : 'text-gray-500 active:text-gray-700'
                                 }`}
                         >
                             收入
@@ -501,7 +501,7 @@ const Report: React.FC = () => {
                     <div>
                         <button
                             onClick={() => setIsProjectFilterOpen(!isProjectFilterOpen)}
-                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-2"
+                            className="flex items-center gap-2 text-sm text-gray-600 active:text-gray-800 mb-2"
                         >
                             <span>專案標籤篩選</span>
                             <span className="text-xs text-gray-400">
@@ -534,7 +534,7 @@ const Report: React.FC = () => {
                                                 }}
                                                 className={`px-3 py-1 text-xs rounded-full transition-colors ${isSelected
                                                     ? 'bg-blue-500 text-white'
-                                                    : 'bg-white text-gray-600 border border-gray-300 hover:border-blue-500'
+                                                    : 'bg-white text-gray-600 border border-gray-300 active:border-blue-500'
                                                     }`}
                                             >
                                                 {tag.name}
@@ -552,7 +552,7 @@ const Report: React.FC = () => {
                                         onClick={() => {
                                             setAppliedProjectTags(pendingProjectTags);
                                         }}
-                                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                                        className="text-xs text-blue-600 active:text-blue-700 active:underline font-medium"
                                     >
                                         套用篩選
                                     </button>
@@ -635,7 +635,7 @@ const Report: React.FC = () => {
                                     <div key={item.categoryId} className="bg-white rounded-xl shadow-sm overflow-hidden">
                                         {/* Category Header */}
                                         <div
-                                            className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                            className="p-4 cursor-pointer active:bg-gray-50 transition-colors"
                                             onClick={() => toggleCategory(item.categoryId)}
                                         >
                                             <div className="flex items-center justify-between mb-2">
@@ -697,7 +697,7 @@ const Report: React.FC = () => {
                                                                 <div key={subcategory.id} className="mb-2 last:mb-0">
                                                                     {/* Subcategory Header */}
                                                                     <div
-                                                                        className="flex items-center justify-between p-3 bg-white rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                                                                        className="flex items-center justify-between p-3 bg-white rounded-lg active:bg-gray-50 cursor-pointer transition-colors"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             toggleSubcategory(subcategory.id);
@@ -740,7 +740,7 @@ const Report: React.FC = () => {
                                                                                     <div
                                                                                         key={transaction.id}
                                                                                         onClick={() => openModal(transaction)}
-                                                                                        className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+                                                                                        className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer active:bg-gray-100 transition-colors"
                                                                                     >
                                                                                         <div className="flex-1">
                                                                                             <div className="text-gray-600 flex items-center gap-2">

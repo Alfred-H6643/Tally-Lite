@@ -40,7 +40,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ onAddClick }) => {
             {/* Center: Add Transaction (Pill Button) */}
             <button
                 onClick={onAddClick}
-                className="bg-[#E3B873] hover:bg-[#dcae63] text-white px-8 py-3 rounded-full flex items-center gap-2 shadow-lg shadow-orange-100 active:scale-95 transition-all"
+                className="bg-[#E3B873] active:bg-[#dcae63] text-white px-8 py-3 rounded-full flex items-center gap-2 shadow-lg shadow-orange-100 active:scale-95 transition-all"
             >
                 <span className="text-xl font-bold">＋</span>
                 <span className="font-bold tracking-wide">新紀錄</span>

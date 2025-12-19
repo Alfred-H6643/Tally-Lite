@@ -10,6 +10,8 @@ import Report from './components/Report';
 import AddTransaction from './components/AddTransaction';
 import BottomNavigation from './components/BottomNavigation';
 import Login from './components/Login';
+import AdminSettings from './components/AdminSettings';
+import AccountSettings from './components/AccountSettings';
 import { AnimatePresence } from 'framer-motion';
 import { useFirebaseAuth } from './hooks/useFirebaseAuth';
 import { useAppContext } from './context/AppContext';
@@ -23,9 +25,11 @@ const AuthenticatedApp: React.FC = () => {
     { path: "/", element: <Dashboard /> },
     { path: "/report", element: <Report /> },
     { path: "/settings", element: <Settings /> },
+    { path: "/settings/account", element: <AccountSettings /> },
     { path: "/settings/categories", element: <CategorySettings /> },
     { path: "/settings/budgets", element: <BudgetSettings /> },
     { path: "/settings/projects", element: <ProjectSettings /> },
+    { path: "/settings/admin", element: <AdminSettings /> },
   ]);
 
   return (

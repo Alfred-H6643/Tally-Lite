@@ -14,7 +14,7 @@ interface AddTransactionProps {
 const ITEMS_PER_PAGE = 10;
 
 const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransaction }) => {
-    const { addTransaction, updateTransaction, categories, subcategories, projectTags, initialDate } = useAppContext();
+    const { addTransaction, updateTransaction, categories, subcategories, projectTags, initialDate, addSubcategory } = useAppContext();
 
     // Initialize State from initialTransaction or default
     const [amount, setAmount] = useState(initialTransaction ? initialTransaction.amount.toString() : '0');
@@ -40,6 +40,10 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
     // Grid State
     const [viewMode, setViewMode] = useState<'categories' | 'subcategories'>('categories');
     const [page, setPage] = useState(0);
+
+    // Subcategory Creation State
+    const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
+    const [newSubcategoryName, setNewSubcategoryName] = useState('');
 
     const handleNumberClick = (num: string) => {
         // Map 'plus'/'minus' to symbols
@@ -155,6 +159,30 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
             prev.includes(projectId) ? prev.filter(p => p !== projectId) : [...prev, projectId]
         );
     };
+
+    const handleAddSubcategory = () => {
+        if (!newSubcategoryName.trim() || !selectedCategoryId) return;
+
+        const newSubcategoryData = {
+            id: uuidv4(),
+            name: newSubcategoryName.trim(),
+            parentId: selectedCategoryId,
+            order: (subcategories.filter(s => s.parentId === selectedCategoryId).length + 1),
+            isHidden: false,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        addSubcategory(newSubcategoryData);
+
+        // Auto select new subcategory
+        setSelectedSubcategoryId(newSubcategoryData.id);
+
+        // Close modal
+        setIsCreatingSubcategory(false);
+        setNewSubcategoryName('');
+    };
+
 
     // Keyboard Support
     useEffect(() => {
@@ -418,6 +446,22 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                                     </span>
                                 </button>
                             ))}
+
+                            {/* Add Subcategory Button */}
+                            <button
+                                onClick={() => setIsCreatingSubcategory(true)}
+                                className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
+                            >
+                                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-blue-500 border-2 border-dashed border-blue-300">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </div>
+                                <span className="text-[10px] font-medium text-blue-500">
+                                    新增
+                                </span>
+                            </button>
                         </div>
                     </div>
                 )}
@@ -454,6 +498,48 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
 
             {/* Flexible Whitespace */}
             <div className="flex-1 bg-gray-50" />
+
+            {/* Subcategory Creation Modal */}
+            <AnimatePresence>
+                {isCreatingSubcategory && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-2xl p-4 w-full max-w-xs shadow-xl"
+                        >
+                            <h3 className="text-lg font-bold mb-4 text-center">新增子分類</h3>
+                            <input
+                                type="text"
+                                value={newSubcategoryName}
+                                onChange={(e) => setNewSubcategoryName(e.target.value)}
+                                placeholder="輸入子分類名稱"
+                                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-base mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                            />
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setIsCreatingSubcategory(false);
+                                        setNewSubcategoryName('');
+                                    }}
+                                    className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 font-medium"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={handleAddSubcategory}
+                                    disabled={!newSubcategoryName.trim()}
+                                    className="flex-1 h-10 rounded-xl bg-blue-500 text-white font-medium disabled:opacity-50 disabled:bg-gray-300"
+                                >
+                                    新增
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Number Pad */}
             <div className="shrink-0 bg-[#1C1C1E]">

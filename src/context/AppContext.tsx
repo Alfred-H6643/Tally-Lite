@@ -1,8 +1,15 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Category, Subcategory, Transaction, ProjectTag, Budget } from '../types';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useFirestoreCollection } from '../hooks/useFirestore';
-import { orderBy, where } from 'firebase/firestore';
+import { db } from '../services/firebase';
+import { doc, getDoc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot } from 'firebase/firestore';
+
+export interface UserProfile {
+    displayName: string;
+    avatar: string;
+}
 
 interface AppContextType {
     categories: Category[];
@@ -13,6 +20,7 @@ interface AppContextType {
     addTransaction: (transaction: Transaction) => void;
     deleteTransaction: (id: string) => void;
     updateTransaction: (transaction: Transaction) => void;
+    batchDeleteTransactions: (ids: string[]) => Promise<void>;
     addCategory: (category: Category) => void;
     updateCategory: (category: Category) => void;
     deleteCategory: (id: string) => void;
@@ -42,6 +50,16 @@ interface AppContextType {
     openModal: (transaction?: Transaction, date?: Date) => void;
     closeModal: () => void;
     lastModifiedTransactionId: string | null;
+
+    // User Profile
+    userProfile: UserProfile;
+    updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
+
+    // Export Settings
+    exportSettings: {
+        scriptUrl: string;
+    };
+    updateExportSettings: (settings: { scriptUrl: string }) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -49,6 +67,35 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useFirebaseAuth();
     const userId = user?.uid;
+
+    const [userProfile, setUserProfile] = useState<UserProfile>({
+        displayName: '匿名的記帳專家',
+        avatar: '👤'
+    });
+
+    // Fetch user profile from Firestore
+    React.useEffect(() => {
+        if (!userId) return;
+
+        const docRef = doc(db, 'users', userId, 'config', 'profile');
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setUserProfile(docSnap.data() as UserProfile);
+            } else {
+                // If it doesn't exist, we don't necessarily need to create it immediately,
+                // the default state is already set.
+            }
+        });
+
+        return () => unsubscribe();
+    }, [userId]);
+
+    const updateUserProfile = async (profile: Partial<UserProfile>) => {
+        if (!userId) return;
+        const docRef = doc(db, 'users', userId, 'config', 'profile');
+        const newProfile = { ...userProfile, ...profile };
+        await setDoc(docRef, newProfile, { merge: true });
+    };
 
     // Firestore Collections
     // Only fetch if we have a userId
@@ -122,12 +169,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return constraints;
     }, [subscribedFilter.start, subscribedFilter.end]);
 
-    const {
-        data: transactions,
-        add: addTransactionFn,
-        update: updateTransactionFn,
-        remove: deleteTransactionFn
-    } = useFirestoreCollection<Transaction>(
+    const { data: transactions, add: addTransactionFn, update: updateTransactionFn } = useFirestoreCollection<Transaction>(
         userId ? `users/${userId}/transactions` : '',
         transactionConstraints
     );
@@ -161,7 +203,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateTransactionFn(transaction.id, transaction);
         setLastModifiedTransactionId(transaction.id);
     };
-    const deleteTransaction = (id: string) => deleteTransactionFn(id);
+
+    const deleteTransaction = async (id: string) => {
+        if (!user) return;
+        try {
+            await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+        }
+    };
+
+    const batchDeleteTransactions = async (ids: string[]) => {
+        if (!user || ids.length === 0) return;
+
+        // Firestore batch limit is 500. Let's process in chunks.
+        const CHUNK_SIZE = 400;
+        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+            const chunk = ids.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            chunk.forEach(id => {
+                const docRef = doc(db, 'users', user.uid, 'transactions', id);
+                batch.delete(docRef);
+            });
+            try {
+                await batch.commit();
+            } catch (error) {
+                console.error('Error committing batch delete:', error);
+            }
+        }
+    };
 
     const addCategory = (category: Category) => {
         const { id, ...data } = category;
@@ -233,6 +303,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const [initialDate, setInitialDate] = useState<Date | undefined>(undefined);
     const [lastModifiedTransactionId, setLastModifiedTransactionId] = useState<string | null>(null);
 
+    // Export Settings State (Persisted to LocalStorage)
+    const [exportSettings, setExportSettings] = useState(() => {
+        const saved = localStorage.getItem('ah_money_export_settings');
+        // Migrate old format or default
+        const parsed = saved ? JSON.parse(saved) : {};
+        return { scriptUrl: parsed.scriptUrl || '' };
+    });
+
+    const updateExportSettings = (settings: { scriptUrl: string }) => {
+        setExportSettings(settings);
+        localStorage.setItem('ah_money_export_settings', JSON.stringify(settings));
+    };
+
     const openModal = (transaction?: Transaction, date?: Date) => {
         setEditingTransaction(transaction);
         setInitialDate(date);
@@ -263,6 +346,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 addTransaction,
                 deleteTransaction,
                 updateTransaction,
+                batchDeleteTransactions,
                 addCategory,
                 updateCategory,
                 deleteCategory,
@@ -282,6 +366,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                 transactionFilter: subscribedFilter,
                 setTransactionFilter,
+
+                exportSettings,
+                updateExportSettings,
+
+                userProfile,
+                updateUserProfile,
             }}
         >
             {children}

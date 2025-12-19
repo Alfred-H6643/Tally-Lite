@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth, isToday } from 'date-fns';
 import type { Transaction } from '../types';
@@ -8,7 +9,18 @@ import MonthPicker from './MonthPicker';
 import { convertAmountToTWD } from '../utils/currency';
 
 const Dashboard: React.FC = () => {
-    const { transactions, categories, subcategories, projectTags, openModal, deleteTransaction, setTransactionFilter, lastModifiedTransactionId } = useAppContext();
+    const navigate = useNavigate();
+    const {
+        transactions,
+        categories,
+        subcategories,
+        projectTags,
+        userProfile,
+        openModal,
+        deleteTransaction,
+        setTransactionFilter,
+        lastModifiedTransactionId
+    } = useAppContext();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
@@ -134,7 +146,13 @@ const Dashboard: React.FC = () => {
                         If I replace X with <div className="w-8" /> it keeps the spacing.
                         I'll do that.
                     */}
-                    <div className="w-8"></div>
+                    {/* Left: User Avatar */}
+                    <div
+                        onClick={() => navigate('/settings/account')}
+                        className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-2xl cursor-pointer active:scale-95 transition-transform"
+                    >
+                        {userProfile.avatar}
+                    </div>
 
                     {/* Center: Date Pill */}
                     <div className="flex items-center bg-gray-100 rounded-full px-1 py-1">

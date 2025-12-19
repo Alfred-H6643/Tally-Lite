@@ -24,10 +24,17 @@ const Login: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-            <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg">
-                <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">AH Money Tracker</h1>
-                    <p className="text-gray-500">請登入以存取您的記帳資料</p>
+            <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl">
+                <div className="text-center mb-10">
+                    <div className="w-24 h-24 bg-white rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-blue-100 overflow-hidden border border-gray-100 p-2">
+                        <img
+                            src="/logo.png"
+                            alt="A+ 記帳"
+                            className="w-full h-full object-contain"
+                        />
+                    </div>
+                    <h1 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">A+ 記帳</h1>
+                    <p className="text-gray-400 text-sm font-medium">記錄生活的每一份收支</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">

@@ -9,7 +9,7 @@ import MonthPicker from './MonthPicker';
 import { convertAmountToTWD } from '../utils/currency';
 
 type ViewMode = 'month' | 'year' | 'custom';
-type TransactionType = 'expense' | 'income';
+type TransactionType = 'expense' | 'income' | 'budget';
 
 // TypeScript interfaces for chart components
 interface ChartDataItem {
@@ -59,22 +59,31 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, transact
                     <span className="font-bold text-gray-800">{data.name}</span>
                 </div>
                 <div className="space-y-1 text-sm">
-                    <div className="flex justify-between gap-4">
-                        <span className="text-gray-500">{transactionType === 'expense' ? '費用' : '收入'}:</span>
-                        <span className={`font-bold ${transactionType === 'income' ? 'text-green-500' : 'text-[#E3B873]'}`}>TWD ${data.value.toLocaleString()}</span>
-                    </div>
-                    {budget !== null && remaining !== null && (
+                    {transactionType === 'budget' ? (
+                        <div className="flex justify-between gap-4">
+                            <span className="text-gray-500">預算額度:</span>
+                            <span className="font-bold text-blue-600">TWD ${data.value.toLocaleString()}</span>
+                        </div>
+                    ) : (
                         <>
                             <div className="flex justify-between gap-4">
-                                <span className="text-gray-500">預算:</span>
-                                <span className="font-medium text-blue-600">TWD ${budget.toLocaleString()}</span>
+                                <span className="text-gray-500">{transactionType === 'expense' ? '費用' : '收入'}:</span>
+                                <span className={`font-bold ${transactionType === 'income' ? 'text-green-500' : 'text-[#E3B873]'}`}>TWD ${data.value.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between gap-4 pt-1 border-t border-gray-100 mt-1">
-                                <span className="text-gray-500">剩餘:</span>
-                                <span className={`font-bold ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    TWD ${remaining.toLocaleString()}
-                                </span>
-                            </div>
+                            {budget !== null && remaining !== null && (
+                                <>
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-gray-500">預算:</span>
+                                        <span className="font-medium text-blue-600">TWD ${budget.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4 pt-1 border-t border-gray-100 mt-1">
+                                        <span className="text-gray-500">剩餘:</span>
+                                        <span className={`font-bold ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                            TWD ${remaining.toLocaleString()}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
                 </div>
@@ -282,6 +291,26 @@ const Report: React.FC = () => {
     };
 
     const chartData = useMemo(() => {
+        if (transactionType === 'budget') {
+            // Handle Budget View
+            const data: any[] = [];
+            categories.forEach(category => {
+                const budget = getCategoryBudget(category.id);
+                if (budget && budget > 0) {
+                    data.push({
+                        categoryId: category.id,
+                        name: category.name,
+                        value: budget,
+                        color: category.color,
+                        icon: category.icon,
+                        budget: budget // In budget mode, value IS the budget
+                    });
+                }
+            });
+            return data.sort((a, b) => b.value - a.value);
+        }
+
+        // Handle Expense/Income View
         const relevantTransactions = getRelevantTransactions();
 
         const data: {
@@ -314,7 +343,7 @@ const Report: React.FC = () => {
         });
 
         return data.sort((a, b) => b.value - a.value);
-    }, [transactions, categories, dateRange, transactionType]);
+    }, [transactions, categories, dateRange, transactionType, getCategoryBudget]);
 
     // Calculate total expenses for percentage
     const totalExpenses = useMemo(() => {
@@ -323,6 +352,20 @@ const Report: React.FC = () => {
 
     // Calculate subcategory data for a category
     const getSubcategoryData = (categoryId: string) => {
+        if (transactionType === 'budget') {
+            return subcategories
+                .filter(s => s.parentId === categoryId)
+                .map(s => {
+                    const budget = getSubcategoryBudget(s.id);
+                    return {
+                        subcategory: s,
+                        total: budget || 0
+                    };
+                })
+                .filter(item => item.total > 0)
+                .sort((a, b) => b.total - a.total);
+        }
+
         const categoryTransactions = getRelevantTransactions(categoryId);
         const subcategoryMap = new Map<string, { subcategory: any; total: number }>();
 
@@ -495,6 +538,15 @@ const Report: React.FC = () => {
                         >
                             收入
                         </button>
+                        <button
+                            onClick={() => setTransactionType('budget')}
+                            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${transactionType === 'budget'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 active:text-gray-700'
+                                }`}
+                        >
+                            預算
+                        </button>
                     </div>
 
                     {/* 4. 專案標籤篩選 */}
@@ -567,8 +619,8 @@ const Report: React.FC = () => {
                     {/* Chart Section */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
                         <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize flex items-baseline gap-2">
-                            <span>{transactionType === 'expense' ? '費用' : '收入'} {viewMode} Overview</span>
-                            <span className={`text-sm font-normal ${transactionType === 'income' ? 'text-green-500' : 'text-[#E3B873]'}`}>
+                            <span>{transactionType === 'expense' ? '費用' : transactionType === 'income' ? '收入' : '預算'} {viewMode} Overview</span>
+                            <span className={`text-sm font-normal ${transactionType === 'income' ? 'text-green-500' : transactionType === 'budget' ? 'text-blue-500' : 'text-[#E3B873]'}`}>
                                 (Total: TWD ${totalExpenses.toLocaleString()})
                             </span>
                         </h2>
@@ -659,14 +711,14 @@ const Report: React.FC = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="font-bold text-gray-800">TWD ${item.value.toLocaleString()}</div>
-                                                    {remaining !== null && (
+                                                    {remaining !== null && transactionType !== 'budget' && (
                                                         <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                                             {remaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(remaining).toLocaleString()}
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                            {budget !== null && (
+                                            {budget !== null && transactionType !== 'budget' && (
                                                 <div className="w-full bg-gray-100 rounded-full h-2 mt-2 overflow-hidden">
                                                     <div
                                                         className={`h-full rounded-full transition-all ${remaining && remaining < 0 ? 'bg-red-500' : 'bg-blue-500'}`}
@@ -718,7 +770,7 @@ const Report: React.FC = () => {
                                                                         </div>
                                                                         <div className="text-right">
                                                                             <div className="text-sm font-semibold text-gray-700">TWD ${total.toLocaleString()}</div>
-                                                                            {subRemaining !== null && (
+                                                                            {subRemaining !== null && transactionType !== 'budget' && (
                                                                                 <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                                                                     {subRemaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(subRemaining).toLocaleString()}
                                                                                 </div>
@@ -726,9 +778,9 @@ const Report: React.FC = () => {
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* Transactions */}
+                                                                    {/* Transactions - Hide in Budget Mode */}
                                                                     <AnimatePresence>
-                                                                        {isSubExpanded && (
+                                                                        {isSubExpanded && transactionType !== 'budget' && (
                                                                             <motion.div
                                                                                 initial={{ height: 0, opacity: 0 }}
                                                                                 animate={{ height: 'auto', opacity: 1 }}

@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import type { Transaction, TransactionType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, addDays, subDays } from 'date-fns';
 
 interface AddTransactionProps {
     onClose: () => void;
@@ -32,6 +32,16 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         if (initialDate) return format(initialDate, 'yyyy-MM-dd');
         return new Date().toISOString().split('T')[0];
     });
+
+    const handlePrevDay = () => {
+        const currentDate = new Date(date);
+        setDate(format(subDays(currentDate, 1), 'yyyy-MM-dd'));
+    };
+
+    const handleNextDay = () => {
+        const currentDate = new Date(date);
+        setDate(format(addDays(currentDate, 1), 'yyyy-MM-dd'));
+    };
     const [showProjectSelector, setShowProjectSelector] = useState(false);
 
     // Currency State
@@ -260,35 +270,53 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
 
 
                 {/* Date Picker Overlay */}
-                <div
-                    className="relative z-50 cursor-pointer"
-                    onClick={() => {
-                        // Explicitly trigger the picker logic
-                        const input = document.getElementById('date-trigger') as HTMLInputElement;
-                        if (input && 'showPicker' in HTMLInputElement.prototype) {
-                            try {
-                                input.showPicker();
-                            } catch (e) {
-                                console.warn('showPicker failed', e);
+                <div className="flex items-center bg-gray-100 rounded-full px-1 py-1">
+                    <button
+                        onClick={handlePrevDay}
+                        className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+
+                    <div
+                        className="relative cursor-pointer px-2 min-w-[100px] text-center"
+                        onClick={() => {
+                            const input = document.getElementById('date-trigger') as HTMLInputElement;
+                            if (input && 'showPicker' in HTMLInputElement.prototype) {
+                                try {
+                                    input.showPicker();
+                                } catch (e) {
+                                    console.warn('showPicker failed', e);
+                                }
                             }
-                        }
-                    }}
-                >
-                    <div className="bg-gray-100 px-4 py-1 rounded-full text-sm font-bold text-gray-600 flex items-center gap-1 pointer-events-none relative z-10">
-                        {format(new Date(date), 'yyyy/MM/dd')}
-                    </div>
-                    {/* The date input */}
-                    <input
-                        id="date-trigger"
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none bottom-0 top-0 left-0 right-0"
-                        style={{
-                            WebkitAppearance: 'none',
-                            display: 'block' // Ensure it's rendered
                         }}
-                    />
+                    >
+                        <div className="text-sm font-bold text-gray-600 flex items-center justify-center gap-1 pointer-events-none relative z-10">
+                            {format(new Date(date), 'yyyy/MM/dd')}
+                        </div>
+                        <input
+                            id="date-trigger"
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none bottom-0 top-0 left-0 right-0"
+                            style={{
+                                WebkitAppearance: 'none',
+                                display: 'block'
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleNextDay}
+                        className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
                 </div>
 
                 <div className="w-8"></div>

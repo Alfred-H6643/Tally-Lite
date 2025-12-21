@@ -19,7 +19,8 @@ const Dashboard: React.FC = () => {
         openModal,
         deleteTransaction,
         setTransactionFilter,
-        lastModifiedTransactionId
+        lastModifiedTransactionId,
+        clearLastModifiedTransactionId
     } = useAppContext();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -37,6 +38,9 @@ const Dashboard: React.FC = () => {
         if (!isSameMonth(targetDate, currentMonth)) {
             setCurrentMonth(targetDate);
         }
+
+        // Clear the ID immediately so it doesn't trigger again on subsequent mounts/renders
+        clearLastModifiedTransactionId();
 
         // Delay scroll to allow render
         setTimeout(() => {
@@ -146,12 +150,17 @@ const Dashboard: React.FC = () => {
                         If I replace X with <div className="w-8" /> it keeps the spacing.
                         I'll do that.
                     */}
-                    {/* Left: User Avatar */}
+                    {/* Left: User Avatar & Name */}
                     <div
                         onClick={() => navigate('/settings/account')}
-                        className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-2xl cursor-pointer active:scale-95 transition-transform"
+                        className="flex items-center gap-2 cursor-pointer active:opacity-70 transition-opacity"
                     >
-                        {userProfile.avatar}
+                        <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-2xl shadow-sm border border-gray-100">
+                            {userProfile.avatar}
+                        </div>
+                        <span className="text-sm font-bold text-gray-700">
+                            {userProfile.displayName}
+                        </span>
                     </div>
 
                     {/* Center: Date Pill */}

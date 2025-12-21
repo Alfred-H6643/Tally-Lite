@@ -50,6 +50,7 @@ interface AppContextType {
     openModal: (transaction?: Transaction, date?: Date) => void;
     closeModal: () => void;
     lastModifiedTransactionId: string | null;
+    clearLastModifiedTransactionId: () => void;
 
     // User Profile
     userProfile: UserProfile;
@@ -69,7 +70,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const userId = user?.uid;
 
     const [userProfile, setUserProfile] = useState<UserProfile>({
-        displayName: '匿名的記帳專家',
+        displayName: '神秘客',
         avatar: '👤'
     });
 
@@ -372,6 +373,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
                 userProfile,
                 updateUserProfile,
+
+                clearLastModifiedTransactionId: () => setLastModifiedTransactionId(null),
             }}
         >
             {children}

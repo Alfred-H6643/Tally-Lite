@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear, addYears, subYears, isWithinInterval, parse, differenceInDays } from 'date-fns';
 import { BarChart, Bar, Tooltip, ResponsiveContainer, Cell, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
@@ -147,6 +147,253 @@ const CustomBarLabel: React.FC<CustomBarLabelProps> = ({ x = 0, y = 0, width = 0
     );
 };
 
+// --- Memoized Report List Components ---
+
+interface TransactionReportItemProps {
+    transaction: any;
+    projectTags: any[];
+    onEditClick: (t: any) => void;
+}
+
+const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClick }: TransactionReportItemProps) => {
+    const handleEdit = React.useCallback(() => {
+        onEditClick(transaction);
+    }, [onEditClick, transaction]);
+
+    return (
+        <div
+            onClick={handleEdit}
+            className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer active:bg-gray-100 transition-colors"
+        >
+            <div className="flex-1">
+                <div className="text-gray-600 flex items-center gap-2">
+                    {format(new Date(transaction.date), 'yyyy/MM/dd')}
+                    {transaction.tags && transaction.tags.length > 0 && (() => {
+                        const tagId = transaction.tags[0];
+                        const tag = projectTags.find(p => p.id === tagId);
+                        return tag ? (
+                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium border border-blue-200">
+                                <span>🏷️</span>
+                                {tag.name}
+                            </span>
+                        ) : null;
+                    })()}
+                </div>
+                {transaction.note && (
+                    <div className="text-gray-400 truncate">{transaction.note}</div>
+                )}
+            </div>
+            <div className="text-right ml-2">
+                <div className="font-medium text-gray-700">
+                    {transaction.currency || 'TWD'} ${transaction.amount.toLocaleString()}
+                </div>
+                {transaction.currency && transaction.currency !== 'TWD' && (
+                    <div className="text-[10px] text-gray-400">
+                        ≈ TWD ${convertAmountToTWD(transaction.amount, transaction.currency).toLocaleString()}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+});
+
+interface SubcategoryReportItemProps {
+    subcategory: any;
+    total: number;
+    subBudget: number | null;
+    isExpanded: boolean;
+    onToggle: (id: string) => void;
+    transactionType: TransactionType;
+    subTransactions: any[];
+    projectTags: any[];
+    onEditClick: (t: any) => void;
+}
+
+const SubcategoryReportItem = React.memo(({
+    subcategory,
+    total,
+    subBudget,
+    isExpanded,
+    onToggle,
+    transactionType,
+    subTransactions,
+    projectTags,
+    onEditClick
+}: SubcategoryReportItemProps) => {
+    const subRemaining = subBudget !== null ? subBudget - total : null;
+
+    const handleToggle = React.useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        onToggle(subcategory.id);
+    }, [onToggle, subcategory.id]);
+
+    return (
+        <div className="mb-2 last:mb-0">
+            {/* Subcategory Header */}
+            <div
+                className="flex items-center justify-between p-3 bg-white rounded-lg active:bg-gray-50 cursor-pointer transition-colors"
+                onClick={handleToggle}
+            >
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">
+                        {isExpanded ? '▼' : '▶'}
+                    </span>
+                    <div>
+                        <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
+                        {subBudget !== null && (
+                            <div className="text-xs text-gray-400">
+                                預算: TWD ${subBudget.toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="text-sm font-semibold text-gray-700">TWD ${total.toLocaleString()}</div>
+                    {subRemaining !== null && transactionType !== 'budget' && (
+                        <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {subRemaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(subRemaining).toLocaleString()}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Transactions - Hide in Budget Mode */}
+            <AnimatePresence>
+                {isExpanded && transactionType !== 'budget' && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="mt-2 ml-6 space-y-1"
+                    >
+                        {subTransactions.map(transaction => (
+                            <TransactionReportItem
+                                key={transaction.id}
+                                transaction={transaction}
+                                projectTags={projectTags}
+                                onEditClick={onEditClick}
+                            />
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+});
+
+interface CategoryReportItemProps {
+    item: ChartDataItem;
+    transactionType: TransactionType;
+    isExpanded: boolean;
+    onToggle: (id: string) => void;
+    subcategoryData: any[];
+    getSubcategoryBudget: (id: string) => number | null;
+    expandedSubcategories: Set<string>;
+    toggleSubcategory: (id: string) => void;
+    projectTags: any[];
+    onEditClick: (t?: any, date?: Date) => void;
+}
+
+const CategoryReportItem = React.memo(({
+    item,
+    transactionType,
+    isExpanded,
+    onToggle,
+    subcategoryData,
+    getSubcategoryBudget,
+    expandedSubcategories,
+    toggleSubcategory,
+    projectTags,
+    onEditClick
+}: CategoryReportItemProps) => {
+    const budget = item.budget;
+    const remaining = budget !== null ? budget - item.value : null;
+    const percent = budget ? Math.min(100, (item.value / budget) * 100) : 0;
+
+    const handleToggle = useCallback(() => {
+        onToggle(item.categoryId);
+    }, [onToggle, item.categoryId]);
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            {/* Category Header */}
+            <div
+                className="p-4 cursor-pointer active:bg-gray-100 transition-colors"
+                onClick={handleToggle}
+            >
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: `${item.color}20`, color: item.color }}>
+                            {item.icon}
+                        </div>
+                        <div>
+                            <div className="font-bold text-gray-800 flex items-center gap-2">
+                                {item.name}
+                                <span className="text-xs text-gray-400">
+                                    {isExpanded ? '▼' : '▶'}
+                                </span>
+                            </div>
+                            {budget !== null && (
+                                <div className="text-xs text-gray-500">
+                                    預算: TWD ${budget.toLocaleString()}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <div className="font-bold text-gray-800">TWD ${item.value.toLocaleString()}</div>
+                        {remaining !== null && transactionType !== 'budget' && (
+                            <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {remaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(remaining).toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                {budget !== null && transactionType !== 'budget' && (
+                    <div className="w-full bg-gray-100 rounded-full h-2 mt-2 overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-all ${remaining && remaining < 0 ? 'bg-red-500' : 'bg-blue-500'}`}
+                            style={{ width: `${percent}%` }}
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Subcategories */}
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="border-t border-gray-100"
+                    >
+                        <div className="px-4 py-2 bg-gray-50">
+                            {subcategoryData.map(({ subcategory, total, subTransactions }) => (
+                                <SubcategoryReportItem
+                                    key={subcategory.id}
+                                    subcategory={subcategory}
+                                    total={total}
+                                    subBudget={getSubcategoryBudget(subcategory.id)}
+                                    isExpanded={expandedSubcategories.has(subcategory.id)}
+                                    onToggle={toggleSubcategory}
+                                    transactionType={transactionType}
+                                    subTransactions={subTransactions}
+                                    projectTags={projectTags}
+                                    onEditClick={onEditClick}
+                                />
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+});
+
+
 const Report: React.FC = () => {
     const { transactions, categories, subcategories, projectTags, getBudgetForCategory, getBudgetForSubcategory, openModal, setTransactionFilter } = useAppContext();
     const navigate = useNavigate();
@@ -168,9 +415,10 @@ const Report: React.FC = () => {
     const [appliedCustomRange, setAppliedCustomRange] = useState(customRange);
     const [appliedProjectTags, setAppliedProjectTags] = useState<string[]>([]);
 
-    // Expandable states
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
     const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
+
+    const closeDatePicker = useCallback(() => setIsDatePickerOpen(false), []);
 
     // Date Range Calculations - 使用 appliedCustomRange 而非 customRange
     const dateRange = useMemo(() => {
@@ -226,7 +474,7 @@ const Report: React.FC = () => {
 
     // Calculate Budget Logic (pro-rated by days) - Using year-based budget system
     // Calculate Budget Logic
-    const getCategoryBudget = (categoryId: string) => {
+    const getCategoryBudget = React.useCallback((categoryId: string) => {
         // 根據報表的日期範圍確定年度 (使用範圍起始日期的年份)
         const year = dateRange.start.getFullYear();
 
@@ -247,9 +495,9 @@ const Report: React.FC = () => {
         const budgetForRange = Math.round(dailyBudget * daysInRange);
 
         return budgetForRange;
-    };
+    }, [dateRange, getBudgetForCategory, viewMode]);
 
-    const getSubcategoryBudget = (subcategoryId: string) => {
+    const getSubcategoryBudget = React.useCallback((subcategoryId: string) => {
         // 根據報表的日期範圍確定年度 (使用範圍起始日期的年份)
         const year = dateRange.start.getFullYear();
 
@@ -270,10 +518,10 @@ const Report: React.FC = () => {
         const budgetForRange = Math.round(dailyBudget * daysInRange);
 
         return budgetForRange;
-    };
+    }, [dateRange, getBudgetForSubcategory, viewMode]);
 
     // Get transactions for a specific category or subcategory - 包含專案標籤篩選
-    const getRelevantTransactions = (categoryId?: string, subcategoryId?: string) => {
+    const getRelevantTransactions = React.useCallback((categoryId?: string, subcategoryId?: string) => {
         return transactions.filter(t => {
             const tDate = new Date(t.date);
             const isInRange = isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
@@ -288,7 +536,7 @@ const Report: React.FC = () => {
 
             return isCorrectType && isInRange && matchesCategory && matchesSubcategory && matchesProjectTags;
         });
-    };
+    }, [transactions, dateRange, transactionType, appliedProjectTags]);
 
     const chartData = useMemo(() => {
         if (transactionType === 'budget') {
@@ -343,52 +591,63 @@ const Report: React.FC = () => {
         });
 
         return data.sort((a, b) => b.value - a.value);
-    }, [transactions, categories, dateRange, transactionType, getCategoryBudget]);
+    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions]);
 
     // Calculate total expenses for percentage
     const totalExpenses = useMemo(() => {
         return chartData.reduce((sum, item) => sum + item.value, 0);
     }, [chartData]);
 
-    // Calculate subcategory data for a category
-    const getSubcategoryData = (categoryId: string) => {
-        if (transactionType === 'budget') {
-            return subcategories
-                .filter(s => s.parentId === categoryId)
-                .map(s => {
-                    const budget = getSubcategoryBudget(s.id);
-                    return {
-                        subcategory: s,
-                        total: budget || 0
-                    };
-                })
-                .filter(item => item.total > 0)
-                .sort((a, b) => b.total - a.total);
-        }
+    // Precompute subcategory data for all categories to keep CategoryReportItem stable
+    const allSubcategoryData = useMemo(() => {
+        const map = new Map<string, any[]>();
+        categories.forEach(cat => {
+            const categoryId = cat.id;
 
-        const categoryTransactions = getRelevantTransactions(categoryId);
-        const subcategoryMap = new Map<string, { subcategory: any; total: number }>();
-
-        categoryTransactions.forEach(t => {
-            const subcategory = subcategories.find(s => s.id === t.subcategoryId);
-            if (!subcategory) return;
-
-            const existing = subcategoryMap.get(subcategory.id);
-            const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
-            if (existing) {
-                existing.total += amountTWD;
-            } else {
-                subcategoryMap.set(subcategory.id, {
-                    subcategory,
-                    total: amountTWD
-                });
+            if (transactionType === 'budget') {
+                const subs = subcategories
+                    .filter(s => s.parentId === categoryId)
+                    .map(s => {
+                        const budget = getSubcategoryBudget(s.id);
+                        return {
+                            subcategory: s,
+                            total: budget || 0,
+                            subTransactions: [] // No transactions shown in budget mode
+                        };
+                    })
+                    .filter(item => item.total > 0)
+                    .sort((a, b) => b.total - a.total);
+                map.set(categoryId, subs);
+                return;
             }
+
+            const categoryTransactions = getRelevantTransactions(categoryId);
+            const subcategoryMap = new Map<string, { subcategory: any; total: number; subTransactions: any[] }>();
+
+            categoryTransactions.forEach(t => {
+                const subcategory = subcategories.find(s => s.id === t.subcategoryId);
+                if (!subcategory) return;
+
+                const existing = subcategoryMap.get(subcategory.id);
+                const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
+                if (existing) {
+                    existing.total += amountTWD;
+                    existing.subTransactions.push(t);
+                } else {
+                    subcategoryMap.set(subcategory.id, {
+                        subcategory,
+                        total: amountTWD,
+                        subTransactions: [t]
+                    });
+                }
+            });
+
+            map.set(categoryId, Array.from(subcategoryMap.values()).sort((a, b) => b.total - a.total));
         });
+        return map;
+    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget]);
 
-        return Array.from(subcategoryMap.values()).sort((a, b) => b.total - a.total);
-    };
-
-    const toggleCategory = (categoryId: string) => {
+    const toggleCategory = React.useCallback((categoryId: string) => {
         setExpandedCategories(prev => {
             const newSet = new Set(prev);
             if (newSet.has(categoryId)) {
@@ -407,9 +666,9 @@ const Report: React.FC = () => {
             }
             return newSet;
         });
-    };
+    }, [subcategories]);
 
-    const toggleSubcategory = (subcategoryId: string) => {
+    const toggleSubcategory = React.useCallback((subcategoryId: string) => {
         setExpandedSubcategories(prev => {
             const newSet = new Set(prev);
             if (newSet.has(subcategoryId)) {
@@ -419,7 +678,8 @@ const Report: React.FC = () => {
             }
             return newSet;
         });
-    };
+    }, []);
+
 
     // Calculate dynamic chart height
     const chartHeight = useMemo(() => {
@@ -471,26 +731,26 @@ const Report: React.FC = () => {
                     <div className="mb-3">
                         {viewMode === 'custom' ? (
                             // 自訂模式：日期輸入 + 套用按鈕在同一列
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 overflow-x-hidden">
                                 <input
                                     type="date"
                                     value={pendingCustomRange.start}
                                     onChange={(e) => setPendingCustomRange(prev => ({ ...prev, start: e.target.value }))}
-                                    className="flex-1 h-10 bg-gray-50 border border-gray-200 rounded-lg px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-[125px] h-10 bg-gray-50 border border-gray-200 rounded-lg px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
                                 />
-                                <span className="text-gray-400">-</span>
+                                <span className="text-gray-400 shrink-0">-</span>
                                 <input
                                     type="date"
                                     value={pendingCustomRange.end}
                                     onChange={(e) => setPendingCustomRange(prev => ({ ...prev, end: e.target.value }))}
-                                    className="flex-1 h-10 bg-gray-50 border border-gray-200 rounded-lg px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-[125px] h-10 bg-gray-50 border border-gray-200 rounded-lg px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
                                 />
                                 <button
                                     onClick={() => {
                                         setAppliedCustomRange(pendingCustomRange);
                                         setCustomRange(pendingCustomRange);
                                     }}
-                                    className="h-10 px-4 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors text-sm whitespace-nowrap"
+                                    className="flex-1 h-10 px-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors text-xs whitespace-nowrap min-w-[60px]"
                                 >
                                     套用
                                 </button>
@@ -618,9 +878,9 @@ const Report: React.FC = () => {
                 <div className="p-4 pb-24">
                     {/* Chart Section */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
-                        <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize flex items-baseline gap-2">
-                            <span>{transactionType === 'expense' ? '費用' : transactionType === 'income' ? '收入' : '預算'} {viewMode} Overview</span>
-                            <span className={`text-sm font-normal ${transactionType === 'income' ? 'text-green-500' : transactionType === 'budget' ? 'text-blue-500' : 'text-[#E3B873]'}`}>
+                        <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize flex flex-wrap items-baseline justify-between gap-x-2">
+                            <span>Overview</span>
+                            <span className={`text-sm font-normal whitespace-nowrap ${transactionType === 'income' ? 'text-green-500' : transactionType === 'budget' ? 'text-blue-500' : 'text-[#E3B873]'}`}>
                                 (Total: TWD ${totalExpenses.toLocaleString()})
                             </span>
                         </h2>
@@ -673,178 +933,30 @@ const Report: React.FC = () => {
                     </div >
 
                     {/* Detailed List Section */}
-                    < div className="space-y-3" >
+                    <div className="space-y-3">
                         <h3 className="font-bold text-gray-700 px-1">Details</h3>
-                        {
-                            chartData.map((item) => {
-                                const budget = item.budget;
-                                const remaining = budget !== null ? budget - item.value : null;
-                                const percent = budget ? Math.min(100, (item.value / budget) * 100) : 0;
-                                const isExpanded = expandedCategories.has(item.categoryId);
-                                const subcategoryData = getSubcategoryData(item.categoryId);
-
-                                return (
-                                    <div key={item.categoryId} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                        {/* Category Header */}
-                                        <div
-                                            className="p-4 cursor-pointer active:bg-gray-50 transition-colors"
-                                            onClick={() => toggleCategory(item.categoryId)}
-                                        >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: `${item.color}20`, color: item.color }}>
-                                                        {item.icon}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-bold text-gray-800 flex items-center gap-2">
-                                                            {item.name}
-                                                            <span className="text-xs text-gray-400">
-                                                                {isExpanded ? '▼' : '▶'}
-                                                            </span>
-                                                        </div>
-                                                        {budget !== null && (
-                                                            <div className="text-xs text-gray-500">
-                                                                預算: TWD ${budget.toLocaleString()}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="font-bold text-gray-800">TWD ${item.value.toLocaleString()}</div>
-                                                    {remaining !== null && transactionType !== 'budget' && (
-                                                        <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                            {remaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(remaining).toLocaleString()}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {budget !== null && transactionType !== 'budget' && (
-                                                <div className="w-full bg-gray-100 rounded-full h-2 mt-2 overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all ${remaining && remaining < 0 ? 'bg-red-500' : 'bg-blue-500'}`}
-                                                        style={{ width: `${percent}%` }}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Subcategories */}
-                                        <AnimatePresence>
-                                            {isExpanded && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.2 }}
-                                                    className="border-t border-gray-100"
-                                                >
-                                                    <div className="px-4 py-2 bg-gray-50">
-                                                        {subcategoryData.map(({ subcategory, total }) => {
-                                                            const subBudget = getSubcategoryBudget(subcategory.id);
-                                                            const subRemaining = subBudget !== null ? subBudget - total : null;
-                                                            const isSubExpanded = expandedSubcategories.has(subcategory.id);
-                                                            const subTransactions = getRelevantTransactions(item.categoryId, subcategory.id);
-
-                                                            return (
-                                                                <div key={subcategory.id} className="mb-2 last:mb-0">
-                                                                    {/* Subcategory Header */}
-                                                                    <div
-                                                                        className="flex items-center justify-between p-3 bg-white rounded-lg active:bg-gray-50 cursor-pointer transition-colors"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            toggleSubcategory(subcategory.id);
-                                                                        }}
-                                                                    >
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-xs text-gray-400">
-                                                                                {isSubExpanded ? '▼' : '▶'}
-                                                                            </span>
-                                                                            <div>
-                                                                                <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
-                                                                                {subBudget !== null && (
-                                                                                    <div className="text-xs text-gray-400">
-                                                                                        預算: TWD ${subBudget.toLocaleString()}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="text-right">
-                                                                            <div className="text-sm font-semibold text-gray-700">TWD ${total.toLocaleString()}</div>
-                                                                            {subRemaining !== null && transactionType !== 'budget' && (
-                                                                                <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                                                    {subRemaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(subRemaining).toLocaleString()}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Transactions - Hide in Budget Mode */}
-                                                                    <AnimatePresence>
-                                                                        {isSubExpanded && transactionType !== 'budget' && (
-                                                                            <motion.div
-                                                                                initial={{ height: 0, opacity: 0 }}
-                                                                                animate={{ height: 'auto', opacity: 1 }}
-                                                                                exit={{ height: 0, opacity: 0 }}
-                                                                                transition={{ duration: 0.2 }}
-                                                                                className="mt-2 ml-6 space-y-1"
-                                                                            >
-                                                                                {subTransactions.map(transaction => (
-                                                                                    <div
-                                                                                        key={transaction.id}
-                                                                                        onClick={() => openModal(transaction)}
-                                                                                        className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer active:bg-gray-100 transition-colors"
-                                                                                    >
-                                                                                        <div className="flex-1">
-                                                                                            <div className="text-gray-600 flex items-center gap-2">
-                                                                                                {format(new Date(transaction.date), 'yyyy/MM/dd')}
-                                                                                                {transaction.tags && transaction.tags.length > 0 && (() => {
-                                                                                                    const tagId = transaction.tags[0];
-                                                                                                    const tag = projectTags.find(p => p.id === tagId);
-                                                                                                    return tag ? (
-                                                                                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium border border-blue-200">
-                                                                                                            <span>🏷️</span>
-                                                                                                            {tag.name}
-                                                                                                        </span>
-                                                                                                    ) : null;
-                                                                                                })()}
-                                                                                            </div>
-                                                                                            {transaction.note && (
-                                                                                                <div className="text-gray-400 truncate">{transaction.note}</div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <div className="text-right ml-2">
-                                                                                            <div className="font-medium text-gray-700">
-                                                                                                {transaction.currency || 'TWD'} ${transaction.amount.toLocaleString()}
-                                                                                            </div>
-                                                                                            {transaction.currency && transaction.currency !== 'TWD' && (
-                                                                                                <div className="text-[10px] text-gray-400">
-                                                                                                    ≈ TWD ${convertAmountToTWD(transaction.amount, transaction.currency).toLocaleString()}
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </motion.div>
-                                                                        )}
-                                                                    </AnimatePresence>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                );
-                            })
-                        }
-                    </div >
+                        {chartData.map((item) => (
+                            <CategoryReportItem
+                                key={item.categoryId}
+                                item={item}
+                                transactionType={transactionType}
+                                isExpanded={expandedCategories.has(item.categoryId)}
+                                onToggle={toggleCategory}
+                                subcategoryData={allSubcategoryData.get(item.categoryId) || []}
+                                getSubcategoryBudget={getSubcategoryBudget}
+                                expandedSubcategories={expandedSubcategories}
+                                toggleSubcategory={toggleSubcategory}
+                                projectTags={projectTags}
+                                onEditClick={openModal}
+                            />
+                        ))}
+                    </div>
                 </div>
             </div>
 
             <MonthPicker
                 isOpen={isDatePickerOpen}
-                onClose={() => setIsDatePickerOpen(false)}
+                onClose={closeDatePicker}
                 currentDate={currentMonth}
                 onSelect={setCurrentMonth}
             />

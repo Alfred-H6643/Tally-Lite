@@ -100,6 +100,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Firestore Collections
     // Only fetch if we have a userId
+    const orderByOrder = React.useMemo(() => [orderBy('order', 'asc')], []);
+
     const {
         data: categories,
         add: addCategoryFn,
@@ -107,7 +109,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         remove: deleteCategoryFn
     } = useFirestoreCollection<Category>(
         userId ? `users/${userId}/categories` : '',
-        [orderBy('order', 'asc')]
+        orderByOrder
     );
 
     const {
@@ -117,7 +119,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         remove: deleteSubcategoryFn
     } = useFirestoreCollection<Subcategory>(
         userId ? `users/${userId}/subcategories` : '',
-        [orderBy('order', 'asc')]
+        orderByOrder
     );
 
     // Dynamic Transaction Filtering State
@@ -182,7 +184,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         remove: deleteProjectTagFn
     } = useFirestoreCollection<ProjectTag>(
         userId ? `users/${userId}/projectTags` : '',
-        [orderBy('order', 'asc')]
+        orderByOrder
     );
 
     const {
@@ -195,24 +197,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     // Wrappers to match Context Interface
-    const addTransaction = (transaction: Transaction) => {
+    const addTransaction = React.useCallback((transaction: Transaction) => {
         const { id, ...data } = transaction;
         addTransactionFn(data);
         setLastModifiedTransactionId(transaction.id);
-    };
-    const updateTransaction = (transaction: Transaction) => {
+    }, [addTransactionFn]);
+
+    const updateTransaction = React.useCallback((transaction: Transaction) => {
         updateTransactionFn(transaction.id, transaction);
         setLastModifiedTransactionId(transaction.id);
-    };
+    }, [updateTransactionFn]);
 
-    const deleteTransaction = async (id: string) => {
+    const deleteTransaction = React.useCallback(async (id: string) => {
         if (!user) return;
         try {
             await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
         } catch (error) {
             console.error('Error deleting transaction:', error);
         }
-    };
+    }, [user]);
 
     const batchDeleteTransactions = async (ids: string[]) => {
         if (!user || ids.length === 0) return;
@@ -263,7 +266,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteBudget = (id: string) => deleteBudgetFn(id);
 
     // Helper functions
-    const getBudgetForCategory = (categoryId: string, year: number): number => {
+    const getBudgetForCategory = React.useCallback((categoryId: string, year: number): number => {
         // New Logic: Category Budget is the SUM of all its Subcategory Budgets.
         // We ignore explicit parent-level budgets (where subcategoryId is null/undefined).
         const subBudgets = budgets.filter(
@@ -274,9 +277,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const total = subBudgets.reduce((sum, b) => sum + b.amount, 0);
         return total;
-    };
+    }, [budgets]);
 
-    const getBudgetForSubcategory = (subcategoryId: string, year: number): number => {
+    const getBudgetForSubcategory = React.useCallback((subcategoryId: string, year: number): number => {
         const budget = budgets.find(
             b => b.subcategoryId === subcategoryId &&
                 b.year === year
@@ -284,7 +287,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (budget) return budget.amount;
         // Removed deprecated fallback to subcategory.yearlyBudget
         return 0;
-    };
+    }, [budgets]);
 
     const copyBudgetsToYear = (fromYear: number, toYear: number) => {
         const budgetsToCopy = budgets.filter(b => b.year === fromYear);
@@ -317,11 +320,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         localStorage.setItem('ah_money_export_settings', JSON.stringify(settings));
     };
 
-    const openModal = (transaction?: Transaction, date?: Date) => {
+    const openModal = React.useCallback((transaction?: Transaction, date?: Date) => {
         setEditingTransaction(transaction);
         setInitialDate(date);
         setIsModalOpen(true);
-    };
+    }, []);
 
     const closeModal = () => {
         setEditingTransaction(undefined);

@@ -13,9 +13,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
+const EMPTY_CONSTRAINTS: QueryConstraint[] = [];
+
 export const useFirestoreCollection = <T extends { id: string }>(
     collectionPath: string,
-    constraints: QueryConstraint[] = []
+    constraints: QueryConstraint[] = EMPTY_CONSTRAINTS
 ) => {
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);

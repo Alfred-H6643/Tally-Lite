@@ -5,7 +5,7 @@ interface BottomNavigationProps {
     onAddClick: () => void;
 }
 
-const BottomNavigation: React.FC<BottomNavigationProps> = ({ onAddClick }) => {
+const BottomNavigation: React.FC<BottomNavigationProps> = React.memo(({ onAddClick }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -59,6 +59,6 @@ const BottomNavigation: React.FC<BottomNavigationProps> = ({ onAddClick }) => {
             </button>
         </div>
     );
-};
+});
 
 export default BottomNavigation;

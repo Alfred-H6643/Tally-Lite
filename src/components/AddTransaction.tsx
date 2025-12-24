@@ -13,6 +13,175 @@ interface AddTransactionProps {
 
 const ITEMS_PER_PAGE = 10;
 
+// --- Memoized AddTransaction Components ---
+
+interface ProjectTagSelectorProps {
+    projectTags: any[];
+    selectedProjectIds: string[];
+    onToggle: (id: string) => void;
+    show: boolean;
+}
+
+const ProjectTagSelector = React.memo(({ projectTags, selectedProjectIds, onToggle, show }: ProjectTagSelectorProps) => {
+    return (
+        <AnimatePresence>
+            {show && (
+                <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="bg-white px-4 overflow-hidden shrink-0 border-b border-gray-50"
+                >
+                    <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-hide">
+                        {projectTags
+                            .filter(p => p.status === 'active')
+                            .sort((a, b) => a.order - b.order)
+                            .map(project => (
+                                <button
+                                    key={project.id}
+                                    onClick={() => onToggle(project.id)}
+                                    className={`px-4 py-1.5 rounded-2xl text-xs font-medium whitespace-nowrap transition-all border ${selectedProjectIds.includes(project.id)
+                                        ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
+                                        : 'bg-white text-gray-500 border-gray-200'
+                                        }`}
+                                >
+                                    {project.name}
+                                </button>
+                            ))}
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+});
+
+interface CategoryGridProps {
+    categories: any[];
+    onSelect: (id: string, type: any) => void;
+    page: number;
+    setPage: (p: number | ((prev: number) => number)) => void;
+}
+
+const CategoryGrid = React.memo(({ categories, onSelect, page, setPage }: CategoryGridProps) => {
+    const totalPages = Math.ceil(categories.length / ITEMS_PER_PAGE);
+    const visibleCategories = categories.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+
+    return (
+        <div className="flex flex-col">
+            <motion.div
+                key={page}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={(_, { offset }) => {
+                    const swipe = offset.x;
+                    if (swipe < -50 && page < totalPages - 1) {
+                        setPage(p => p + 1);
+                    } else if (swipe > 50 && page > 0) {
+                        setPage(p => p - 1);
+                    }
+                }}
+                className="grid grid-cols-5 gap-y-4 px-4 py-2 min-h-[160px] touch-pan-y"
+            >
+                {visibleCategories.map((c) => (
+                    <button
+                        key={c.id}
+                        onClick={() => onSelect(c.id, c.type)}
+                        className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
+                    >
+                        <div
+                            className="w-11 h-11 rounded-full flex items-center justify-center text-xl"
+                            style={{ backgroundColor: `${c.color}20`, color: c.color }}
+                        >
+                            <span className="">
+                                {c.icon}
+                            </span>
+                        </div>
+                        <span className="text-[10px] font-medium truncate w-full text-center text-gray-600">
+                            {c.name}
+                        </span>
+                    </button>
+                ))}
+            </motion.div>
+
+            {totalPages > 1 && (
+                <div className="flex justify-center gap-1.5 py-3 bg-white shrink-0">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                        <button
+                            key={i}
+                            onClick={() => setPage(i)}
+                            className={`w-1.5 h-1.5 rounded-full transition-colors ${page === i ? 'bg-gray-600' : 'bg-gray-200'}`}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+});
+
+interface SubcategoryGridProps {
+    subcategories: any[];
+    selectedSubcategoryId: string | null;
+    onSelect: (id: string) => void;
+    onBack: () => void;
+    onAdd: () => void;
+}
+
+const SubcategoryGrid = React.memo(({ subcategories, selectedSubcategoryId, onSelect, onBack, onAdd }: SubcategoryGridProps) => {
+    return (
+        <div className="p-4">
+            <div className="grid grid-cols-5 gap-y-4 min-h-[160px]">
+                <button
+                    onClick={onBack}
+                    className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
+                >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-gray-500">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+                        </svg>
+                    </div>
+                    <span className="text-[10px] font-medium text-gray-500">返回</span>
+                </button>
+
+                {subcategories.map((sub) => (
+                    <button
+                        key={sub.id}
+                        onClick={() => onSelect(sub.id)}
+                        className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
+                    >
+                        <div
+                            className={`w-11 h-11 rounded-full flex items-center justify-center text-base transition-all ${selectedSubcategoryId === sub.id ? 'shadow-lg ring-2 ring-offset-1' : ''}`}
+                            style={{
+                                backgroundColor: selectedSubcategoryId === sub.id ? '#666' : '#f3f4f6',
+                                color: selectedSubcategoryId === sub.id ? 'white' : '#4b5563'
+                            }}
+                        >
+                            {sub.name.charAt(0)}
+                        </div>
+                        <span className={`text-[10px] font-medium truncate w-full text-center ${selectedSubcategoryId === sub.id ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
+                            {sub.name}
+                        </span>
+                    </button>
+                ))}
+
+                <button
+                    onClick={onAdd}
+                    className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
+                >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-blue-500 border-2 border-dashed border-blue-300">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </div>
+                    <span className="text-[10px] font-medium text-blue-500">新增</span>
+                </button>
+            </div>
+        </div>
+    );
+});
+
+
 const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransaction }) => {
     const {
         addTransaction,
@@ -173,13 +342,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         onClose();
     };
 
-    const toggleProject = (projectId: string) => {
-        setSelectedProjectIds(prev =>
-            prev.includes(projectId) ? prev.filter(p => p !== projectId) : [...prev, projectId]
-        );
-    };
 
-    const handleAddSubcategory = () => {
+    const handleAddSubcategory = React.useCallback(() => {
         if (!newSubcategoryName.trim() || !selectedCategoryId) return;
 
         const newSubcategoryData = {
@@ -193,14 +357,29 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         };
 
         addSubcategory(newSubcategoryData);
-
-        // Auto select new subcategory
         setSelectedSubcategoryId(newSubcategoryData.id);
-
-        // Close modal
         setIsCreatingSubcategory(false);
         setNewSubcategoryName('');
-    };
+    }, [newSubcategoryName, selectedCategoryId, subcategories, addSubcategory]);
+
+    const handleCategorySelect = React.useCallback((id: string, catType: any) => {
+        setSelectedCategoryId(id);
+        setType(catType);
+        const subs = subcategories.filter(s => s.parentId === id);
+        const uncategorized = subs.find(s => s.name === 'Uncategorized') || subs[0];
+        setSelectedSubcategoryId(uncategorized?.id || null);
+        setViewMode('subcategories');
+    }, [subcategories]);
+
+    const handleSubcategorySelect = React.useCallback((id: string) => {
+        setSelectedSubcategoryId(id);
+    }, []);
+
+    const toggleProjectCallback = React.useCallback((projectId: string) => {
+        setSelectedProjectIds(prev =>
+            prev.includes(projectId) ? prev.filter(p => p !== projectId) : [...prev, projectId]
+        );
+    }, []);
 
 
     // Keyboard Support
@@ -248,8 +427,6 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
             return (a.order || 0) - (b.order || 0);
         });
 
-    const totalPages = Math.ceil(currentCategories.length / ITEMS_PER_PAGE);
-    const visibleCategories = currentCategories.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
     const currentSubcategories = selectedCategoryId
         ? subcategories.filter((s) => s.parentId === selectedCategoryId)
@@ -385,160 +562,33 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                 </div>
             </div>
 
-            {/* Project Tags List (Blue Box Position) - Collapsible */}
-            <AnimatePresence>
-                {showProjectSelector && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="bg-white px-4 overflow-hidden shrink-0 border-b border-gray-50"
-                    >
-                        <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-hide">
-                            {projectTags
-                                .filter(p => p.status === 'active')
-                                .sort((a, b) => a.order - b.order)
-                                .map(project => (
-                                    <button
-                                        key={project.id}
-                                        onClick={() => toggleProject(project.id)}
-                                        className={`px-4 py-1.5 rounded-2xl text-xs font-medium whitespace-nowrap transition-all border ${selectedProjectIds.includes(project.id)
-                                            ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
-                                            : 'bg-white text-gray-500 border-gray-200'
-                                            }`}
-                                    >
-                                        {project.name}
-                                    </button>
-                                ))}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Project Tags List */}
+            <ProjectTagSelector
+                projectTags={projectTags}
+                selectedProjectIds={selectedProjectIds}
+                onToggle={toggleProjectCallback}
+                show={showProjectSelector}
+            />
 
-            {/* Category Grid / Subcategories - No Animation for Speed */}
+            {/* Category Grid / Subcategories */}
             <div className="bg-white relative flex flex-col pt-2 shrink-0">
                 {viewMode === 'categories' ? (
-                    <div className="flex flex-col">
-                        {/* Categories Grid (Swipeable) */}
-                        <motion.div
-                            key={page}
-                            drag="x"
-                            dragConstraints={{ left: 0, right: 0 }}
-                            dragElastic={0.2}
-                            onDragEnd={(_, { offset }) => {
-                                const swipe = offset.x;
-                                if (swipe < -50 && page < totalPages - 1) {
-                                    setPage(p => p + 1);
-                                } else if (swipe > 50 && page > 0) {
-                                    setPage(p => p - 1);
-                                }
-                            }}
-                            className="grid grid-cols-5 gap-y-4 px-4 py-2 min-h-[160px] touch-pan-y"
-                        >
-                            {visibleCategories.map((c) => (
-                                <button
-                                    key={c.id}
-                                    onClick={() => {
-                                        setSelectedCategoryId(c.id);
-                                        setType(c.type); // Auto-set transaction type based on category
-                                        // Auto-select 'Uncategorized' if exists, else first
-                                        const subs = subcategories.filter(s => s.parentId === c.id);
-                                        const uncategorized = subs.find(s => s.name === 'Uncategorized') || subs[0];
-                                        setSelectedSubcategoryId(uncategorized?.id || null);
-                                        setViewMode('subcategories');
-                                    }}
-                                    className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
-                                >
-                                    <div
-                                        className="w-11 h-11 rounded-full flex items-center justify-center text-xl"
-                                        style={{ backgroundColor: `${c.color}20`, color: c.color }}
-                                    >
-                                        <span className="">
-                                            {c.icon}
-                                        </span>
-                                    </div>
-                                    <span className="text-[10px] font-medium truncate w-full text-center text-gray-600">
-                                        {c.name}
-                                    </span>
-                                </button>
-                            ))}
-                        </motion.div>
-                    </div>
+                    <CategoryGrid
+                        categories={currentCategories}
+                        onSelect={handleCategorySelect}
+                        page={page}
+                        setPage={setPage}
+                    />
                 ) : (
-                    <div className="p-4">
-                        <div className="grid grid-cols-5 gap-y-4 min-h-[160px]">
-                            {/* Back Button */}
-                            <button
-                                onClick={() => setViewMode('categories')}
-                                className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
-                            >
-                                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-gray-500">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
-                                    </svg>
-                                </div>
-                                <span className="text-[10px] font-medium text-gray-500">
-                                    返回
-                                </span>
-                            </button>
-
-                            {/* Subcategories */}
-                            {currentSubcategories.map((sub) => (
-                                <button
-                                    key={sub.id}
-                                    onClick={() => setSelectedSubcategoryId(sub.id)}
-                                    className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
-                                >
-                                    <div
-                                        className={`w-11 h-11 rounded-full flex items-center justify-center text-base transition-all ${selectedSubcategoryId === sub.id
-                                            ? 'shadow-lg ring-2 ring-offset-1'
-                                            : ''
-                                            }`}
-                                        style={{
-                                            backgroundColor: selectedSubcategoryId === sub.id ? '#666' : '#f3f4f6',
-                                            color: selectedSubcategoryId === sub.id ? 'white' : '#4b5563'
-                                        }}
-                                    >
-                                        {sub.name.charAt(0)}
-                                    </div>
-                                    <span className={`text-[10px] font-medium truncate w-full text-center ${selectedSubcategoryId === sub.id ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
-                                        {sub.name}
-                                    </span>
-                                </button>
-                            ))}
-
-                            {/* Add Subcategory Button */}
-                            <button
-                                onClick={() => setIsCreatingSubcategory(true)}
-                                className="flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
-                            >
-                                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100 text-blue-500 border-2 border-dashed border-blue-300">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                                    </svg>
-                                </div>
-                                <span className="text-[10px] font-medium text-blue-500">
-                                    新增
-                                </span>
-                            </button>
-                        </div>
-                    </div>
+                    <SubcategoryGrid
+                        subcategories={currentSubcategories}
+                        selectedSubcategoryId={selectedSubcategoryId}
+                        onSelect={handleSubcategorySelect}
+                        onBack={() => setViewMode('categories')}
+                        onAdd={() => setIsCreatingSubcategory(true)}
+                    />
                 )}
             </div>
-
-            {/* Pagination Dots (Green Box Position - Below Grid) */}
-            {viewMode === 'categories' && totalPages > 1 && (
-                <div className="flex justify-center gap-1.5 py-3 bg-white shrink-0">
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                        <button
-                            key={i}
-                            onClick={() => setPage(i)}
-                            className={`w-1.5 h-1.5 rounded-full transition-colors ${page === i ? 'bg-gray-600' : 'bg-gray-200'}`}
-                        />
-                    ))}
-                </div>
-            )}
 
             {/* Note Input (With more whitespace above) */}
             <div className="bg-white flex flex-col gap-2 pb-4 pt-1 shrink-0">

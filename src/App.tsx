@@ -49,7 +49,7 @@ const AuthenticatedApp: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      <BottomNavigation onAddClick={() => openModal()} />
+      <BottomNavigation onAddClick={openModal} />
     </div>
   );
 };

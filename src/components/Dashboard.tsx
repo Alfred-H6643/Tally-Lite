@@ -17,7 +17,6 @@ const Dashboard: React.FC = () => {
         projectTags,
         userProfile,
         openModal,
-        deleteTransaction,
         setTransactionFilter,
         lastModifiedTransactionId,
         clearLastModifiedTransactionId
@@ -204,36 +203,25 @@ const Dashboard: React.FC = () => {
                         <div className="flex flex-col">
                             {/* Date Header Group */}
                             <div className="flex flex-col relative overflow-hidden">
-                                {/* Background Add Button (Left) */}
-                                <div className="absolute inset-0 bg-[#E3B873] flex items-center justify-start px-5 z-0">
-                                    <button
-                                        className="text-white font-medium flex items-center gap-1"
-                                    >
-                                        <span className="text-2xl font-bold">+</span>
-                                    </button>
-                                </div>
-
-                                {/* Date Strip & Header (Draggable) */}
-                                <motion.div
-                                    drag="x"
-                                    dragConstraints={{ left: 0, right: 120 }} // Drag right to reveal left
-                                    dragElastic={{ left: 0, right: 0.1 }}
-                                    onDragEnd={(_, info) => {
-                                        // If dragged far enough right (positive x), trigger add
-                                        if (info.offset.x > 80) {
-                                            openModal(undefined, parseISO(dateStr));
-                                        }
-                                    }}
-                                    className="relative z-10 flex items-center justify-between py-2 pl-4 pr-3 bg-stone-100 border-b border-gray-100 mb-[1px]"
-                                >
-                                    <span className={`text-sm font-medium flex items-center gap-2 ${isToday(parseISO(dateStr)) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
-                                        {format(parseISO(dateStr), 'yyyy/MM/dd')}
-                                        {isToday(parseISO(dateStr)) && (
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-500">
-                                                <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.62.829.799 1.654 1.38 2.274 1.765a11.255 11.255 0 001.056.581c.01.002.016.002.016.002s.11.02.308-.066l.002-.001.006-.003.018-.008zM10 13a4 4 0 100-8 4 4 0 000 8z" clipRule="evenodd" />
-                                            </svg>
-                                        )}
-                                    </span>
+                                {/* Date Strip & Header */}
+                                <div className="relative z-10 flex items-center justify-between py-2 pl-4 pr-3 bg-stone-100 border-b border-gray-100 mb-[1px]">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-sm font-medium flex items-center gap-2 ${isToday(parseISO(dateStr)) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
+                                            {format(parseISO(dateStr), 'yyyy/MM/dd')}
+                                            {isToday(parseISO(dateStr)) && (
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-500">
+                                                    <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.62.829.799 1.654 1.38 2.274 1.765a11.255 11.255 0 001.056.581c.01.002.016.002.016.002s.11.02.308-.066l.002-.001.006-.003.018-.008zM10 13a4 4 0 100-8 4 4 0 000 8z" clipRule="evenodd" />
+                                                </svg>
+                                            )}
+                                        </span>
+                                        {/* New Add Button */}
+                                        <button
+                                            onClick={() => openModal(undefined, parseISO(dateStr))}
+                                            className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-gray-500 hover:bg-[#E3B873] hover:text-white transition-colors"
+                                        >
+                                            <span className="text-sm font-bold leading-none">+</span>
+                                        </button>
+                                    </div>
                                     <div className="flex items-center gap-3 text-xs">
                                         {income > 0 && (
                                             <span className="text-green-500 font-medium">
@@ -244,7 +232,7 @@ const Dashboard: React.FC = () => {
                                             ${expense.toLocaleString()}
                                         </span>
                                     </div>
-                                </motion.div>
+                                </div>
                             </div>
 
                             {/* Transactions */}
@@ -260,36 +248,19 @@ const Dashboard: React.FC = () => {
 
                                     return (
                                         <div key={t.id} className="relative overflow-hidden group mb-[1px]">
-                                            {/* Background Delete Button */}
-                                            <div className="absolute inset-0 bg-red-500 flex items-center justify-end px-4 z-0">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (window.confirm('確定要刪除這筆交易嗎？')) {
-                                                            deleteTransaction(t.id);
-                                                        }
-                                                    }}
-                                                    className="text-white font-medium flex items-center gap-1"
-                                                >
-                                                    <span>🗑️</span>
-                                                    <span className="text-xs">刪除</span>
-                                                </button>
-                                            </div>
-
-                                            {/* Foreground Content (Draggable) */}
-                                            <motion.div
+                                            {/* Foreground Content */}
+                                            <div
                                                 id={`transaction-${t.id}`}
-                                                drag="x"
-                                                dragConstraints={{ left: -80, right: 0 }}
-                                                dragElastic={{ left: 0.1, right: 0 }}
-                                                whileTap={{ cursor: 'grabbing' }}
                                                 className={`relative z-10 flex items-center px-4 py-3 bg-[#F9F9F9] ${index !== trans.length - 1 ? 'border-b border-gray-100' : ''}`}
-                                                style={{ x: 0 }}
                                             >
                                                 {/* Icon */}
                                                 <div
-                                                    className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-4 shrink-0 shadow-sm"
+                                                    className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-4 shrink-0 shadow-sm cursor-pointer active:opacity-70 transition-opacity"
                                                     style={{ backgroundColor: category?.color ? `${category.color}20` : '#eee', color: category?.color }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openModal(t);
+                                                    }}
                                                 >
                                                     <span className="text-xl">{category?.icon}</span>
                                                 </div>
@@ -324,11 +295,12 @@ const Dashboard: React.FC = () => {
                                                 <div className={`font-bold text-base ml-2 ${isIncome ? 'text-green-500' : 'text-[#E3B873]'}`}>
                                                     {isIncome ? '+' : ''}${t.amount.toLocaleString()}
                                                 </div>
-                                            </motion.div>
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
+
                         </div>
                     </div>
                 ))}

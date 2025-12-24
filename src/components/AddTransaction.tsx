@@ -14,7 +14,16 @@ interface AddTransactionProps {
 const ITEMS_PER_PAGE = 10;
 
 const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransaction }) => {
-    const { addTransaction, updateTransaction, categories, subcategories, projectTags, initialDate, addSubcategory } = useAppContext();
+    const {
+        addTransaction,
+        updateTransaction,
+        deleteTransaction,
+        categories,
+        subcategories,
+        projectTags,
+        initialDate,
+        addSubcategory
+    } = useAppContext();
 
     // Initialize State from initialTransaction or default
     const [amount, setAmount] = useState(initialTransaction ? initialTransaction.amount.toString() : '0');
@@ -254,22 +263,19 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="absolute inset-0 z-50 flex flex-col bg-gray-50 overflow-hidden"
         >
-            {/* ... Header ... */}
+            {/* Header */}
             <div className="flex justify-between items-center px-4 py-2 bg-white border-b border-gray-100 shrink-0 relative">
-                <button onClick={onClose} className="p-2 -ml-2 text-gray-400">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
+                {/* Left Slot: Close Button */}
+                <div className="flex-1 flex justify-start">
+                    <button onClick={onClose} className="p-2 -ml-2 text-gray-400 active:bg-gray-100 rounded-full transition-colors">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
 
-                {/* ... (rest of header same, omitted for brevity in thought, but must replace fully if context requires) ... */}
-
-                {/* Actually, to be safe with replace_file_content context matching, I should stick to the target block exactly. */}
-                {/* I will only replace the relevant block */}
-
-
-                {/* Date Picker Overlay */}
+                {/* Center Slot: Date Picker Overlay */}
                 <div className="flex items-center bg-gray-100 rounded-full px-1 py-1">
                     <button
                         onClick={handlePrevDay}
@@ -319,8 +325,34 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                     </button>
                 </div>
 
-                <div className="w-8"></div>
+                {/* Right Slot: Trash Button / Spacer */}
+                <div className="flex-1 flex justify-end">
+                    {initialTransaction ? (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // 使用 setTimeout 避免 confirm 視窗與動畫或事件循環衝突
+                                setTimeout(() => {
+                                    if (window.confirm('確定要刪除這筆交易嗎？')) {
+                                        deleteTransaction(initialTransaction.id);
+                                        onClose();
+                                    }
+                                }, 10);
+                            }}
+                            className="p-2 text-red-500 active:bg-red-50 rounded-full transition-colors"
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
+                            </svg>
+                        </button>
+                    ) : (
+                        <div className="w-10"></div>
+                    )}
+                </div>
             </div>
+
 
             {/* Amount & Project Button */}
             <div className="bg-white px-6 py-2 flex justify-between items-center shrink-0 z-10">

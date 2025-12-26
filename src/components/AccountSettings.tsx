@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppContext } from '../context/AppContext';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
+import ConfirmDialog from './ConfirmDialog';
 
 const AVATARS = [
     '🐶', '🐱', '🐭', '🐹', '🐰',
@@ -20,6 +21,7 @@ const AccountSettings: React.FC = () => {
     const [selectedAvatar, setSelectedAvatar] = useState(userProfile.avatar);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState('');
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
     const handleSave = async () => {
         if (displayName.length > 15) {
@@ -43,13 +45,15 @@ const AccountSettings: React.FC = () => {
     };
 
     const handleLogout = async () => {
-        if (window.confirm('確定要登出嗎？')) {
-            try {
-                await logout();
-                navigate('/login');
-            } catch (error) {
-                console.error('Logout error:', error);
-            }
+        setIsConfirmOpen(true);
+    };
+
+    const confirmLogout = async () => {
+        try {
+            await logout();
+            navigate('/login');
+        } catch (error) {
+            console.error('Logout error:', error);
         }
     };
 
@@ -171,6 +175,16 @@ const AccountSettings: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={confirmLogout}
+                title="登出帳號"
+                message="確定要登出嗎？"
+                type="warning"
+                confirmText="確定登出"
+            />
         </motion.div>
     );
 };

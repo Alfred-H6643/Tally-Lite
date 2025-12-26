@@ -4,6 +4,7 @@ import type { Budget, TransactionType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import ConfirmDialog from './ConfirmDialog';
 
 const BudgetSettings: React.FC = () => {
     const {
@@ -30,6 +31,12 @@ const BudgetSettings: React.FC = () => {
     const [formCategoryId, setFormCategoryId] = useState('');
     const [formSubcategoryId, setFormSubcategoryId] = useState('');
     const [formAmount, setFormAmount] = useState('0');
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState<{ title: string, message: string, onConfirm: () => void }>({
+        title: '',
+        message: '',
+        onConfirm: () => { }
+    });
 
     // 獲取當前年度的可用年度列表（當前年度 ± 2年）
     const availableYears = useMemo(() => {
@@ -127,10 +134,15 @@ const BudgetSettings: React.FC = () => {
     const handleDelete = () => {
         if (!editingBudget) return;
 
-        if (window.confirm('確定要刪除此預算嗎？')) {
-            deleteBudget(editingBudget.id);
-            setIsModalOpen(false);
-        }
+        setConfirmConfig({
+            title: '刪除預算',
+            message: '確定要刪除此預算嗎？',
+            onConfirm: () => {
+                deleteBudget(editingBudget.id);
+                setIsModalOpen(false);
+            }
+        });
+        setIsConfirmOpen(true);
     };
 
     // 複製年度預算
@@ -143,11 +155,18 @@ const BudgetSettings: React.FC = () => {
         // 檢查目標年度是否已有預算
         const existingBudgets = budgets.filter(b => b.year === selectedYear);
         if (existingBudgets.length > 0) {
-            if (!window.confirm(`${selectedYear} 年已有 ${existingBudgets.length} 筆預算，確定要覆蓋嗎？`)) {
-                return;
-            }
-            // 刪除現有預算
-            existingBudgets.forEach(b => deleteBudget(b.id));
+            setConfirmConfig({
+                title: '覆蓋預算',
+                message: `${selectedYear} 年已有 ${existingBudgets.length} 筆預算，確定要覆蓋嗎？`,
+                onConfirm: () => {
+                    // 刪除現有預算
+                    existingBudgets.forEach(b => deleteBudget(b.id));
+                    copyBudgetsToYear(fromYear, selectedYear);
+                    setIsModalOpen(false);
+                }
+            });
+            setIsConfirmOpen(true);
+            return;
         }
 
         copyBudgetsToYear(fromYear, selectedYear);
@@ -459,6 +478,14 @@ const BudgetSettings: React.FC = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+            />
         </motion.div>
     );
 };

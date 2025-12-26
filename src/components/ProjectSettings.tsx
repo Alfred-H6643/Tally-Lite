@@ -3,12 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { v4 as uuidv4 } from 'uuid';
 import type { ProjectTag } from '../types';
+import ConfirmDialog from './ConfirmDialog';
 
 const ProjectSettings: React.FC = () => {
     const navigate = useNavigate();
     const { projectTags, addProjectTag, updateProjectTag, deleteProjectTag } = useAppContext();
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState<{ title: string, message: string, onConfirm: () => void }>({
+        title: '',
+        message: '',
+        onConfirm: () => { }
+    });
 
     const handleBack = () => {
         navigate('/settings');
@@ -121,9 +128,12 @@ const ProjectSettings: React.FC = () => {
                                         </button>
                                         <button
                                             onClick={() => {
-                                                if (window.confirm(`確定要刪除「${tag.name}」嗎？`)) {
-                                                    deleteProjectTag(tag.id);
-                                                }
+                                                setConfirmConfig({
+                                                    title: '刪除專案標籤',
+                                                    message: `確定要刪除「${tag.name}」嗎？`,
+                                                    onConfirm: () => deleteProjectTag(tag.id)
+                                                });
+                                                setIsConfirmOpen(true);
                                             }}
                                             className="text-gray-400 hover:text-red-500 p-2"
                                         >
@@ -146,6 +156,14 @@ const ProjectSettings: React.FC = () => {
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
             </button>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+            />
         </div>
     );
 };

@@ -4,34 +4,7 @@ import type { Category, Subcategory } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-
-// Available color palette
-const CATEGORY_COLORS = [
-    { name: '紅色', value: '#FF6B6B' },
-    { name: '青色', value: '#4ECDC4' },
-    { name: '藍色', value: '#45B7D1' },
-    { name: '綠色', value: '#96CEB4' },
-    { name: '米色', value: '#FFEEAD' },
-    { name: '粉色', value: '#D4A5A5' },
-    { name: '紫色', value: '#9B59B6' },
-    { name: '深藍', value: '#3498DB' },
-    { name: '黃色', value: '#F1C40F' },
-    { name: '翠綠', value: '#2ECC71' },
-    { name: '橘紅', value: '#E74C3C' },
-    { name: '深綠', value: '#27AE60' },
-    { name: '深橘', value: '#D35400' },
-    { name: '靛藍', value: '#3F51B5' },
-    { name: '棕色', value: '#8D6E63' },
-    { name: '藍灰', value: '#607D8B' },
-    { name: '桃紅', value: '#FF4081' },
-    { name: '萊姆', value: '#CDDC39' },
-    { name: '深紫', value: '#673AB7' },
-    { name: '中灰', value: '#7F8C8D' },
-    { name: '鴨綠', value: '#009688' },
-    { name: '淺藍', value: '#03A9F4' },
-    { name: '琥珀', value: '#FFC107' },
-    { name: '藕荷', value: '#BA68C8' },
-];
+import ConfirmDialog from './ConfirmDialog';
 
 // 單獨的 CategoryItem 組件以正確使用 useDragControls
 interface CategoryItemProps {
@@ -40,6 +13,7 @@ interface CategoryItemProps {
     onEdit: (category: Category) => void;
     onEditSubcategory: (subcategory: Subcategory) => void;
     onAddSubcategory: (categoryId: string) => void;
+    onReorderSubcategories: (category: Category) => void;
     onToggleVisibility: (category: Category) => void;
 }
 
@@ -49,6 +23,7 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
     onEdit,
     onEditSubcategory,
     onAddSubcategory,
+    onReorderSubcategories,
     onToggleVisibility
 }) => {
     const dragControls = useDragControls();
@@ -117,6 +92,13 @@ const CategoryItem: React.FC<CategoryItemProps> = ({
                 >
                     <span>+</span> 新增
                 </button>
+                {/* Reorder Button */}
+                <button
+                    onClick={() => onReorderSubcategories(category)}
+                    className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded hover:bg-amber-100 border border-transparent transition-colors flex items-center gap-1"
+                >
+                    <span>⇅</span> 變更排序
+                </button>
             </div>
         </Reorder.Item>
     );
@@ -129,14 +111,20 @@ const CategorySettings: React.FC = () => {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState<'add_category' | 'edit_category' | 'edit_subcategory' | 'add_subcategory' | 'delete_category_prompt'>('add_category');
+    const [modalMode, setModalMode] = useState<'add_category' | 'edit_category' | 'edit_subcategory' | 'add_subcategory' | 'delete_category_prompt' | 'reorder_subcategories'>('add_category');
     const [editingItem, setEditingItem] = useState<Category | Subcategory | null>(null);
     const [targetCategoryId, setTargetCategoryId] = useState<string>('');
-
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState<{ title: string, message: string, onConfirm: () => void }>({
+        title: '',
+        message: '',
+        onConfirm: () => { }
+    });
     // Form State
     const [formName, setFormName] = useState('');
     const [formIcon, setFormIcon] = useState('❓');
     const [formColor, setFormColor] = useState('#999999');
+    const [localSubcategories, setLocalSubcategories] = useState<Subcategory[]>([]);
 
     const currentTypeCategories = categories
         .filter((c) => c.type === activeTab)
@@ -161,6 +149,7 @@ const CategorySettings: React.FC = () => {
         setFormIcon(category.icon);
         setFormColor(category.color);
         setEditingItem(category);
+        setLocalSubcategories(subcategories.filter(s => s.parentId === category.id).sort((a, b) => a.order - b.order));
         setIsModalOpen(true);
     };
 
@@ -176,6 +165,13 @@ const CategorySettings: React.FC = () => {
         setFormName('');
         setTargetCategoryId(categoryId); // Temporarily store parent ID in targetCategoryId
         setEditingItem(null);
+        setIsModalOpen(true);
+    };
+
+    const openReorderModal = (category: Category) => {
+        setModalMode('reorder_subcategories');
+        setEditingItem(category);
+        setLocalSubcategories(subcategories.filter(s => s.parentId === category.id).sort((a, b) => a.order - b.order));
         setIsModalOpen(true);
     };
 
@@ -199,6 +195,14 @@ const CategorySettings: React.FC = () => {
                 icon: formIcon,
                 color: formColor,
             });
+
+            // Update subcategory order if changed
+            localSubcategories.forEach((sub, index) => {
+                const original = subcategories.find(s => s.id === sub.id);
+                if (original && original.order !== index) {
+                    updateSubcategory({ ...sub, order: index });
+                }
+            });
         } else if (modalMode === 'edit_subcategory' && editingItem) {
             updateSubcategory({
                 ...(editingItem as Subcategory),
@@ -214,6 +218,14 @@ const CategorySettings: React.FC = () => {
                 order: subcategories.filter(s => s.parentId === parentId).length,
                 yearlyBudget: 0
             });
+        } else if (modalMode === 'reorder_subcategories' && editingItem) {
+            // Update subcategory order in reorder mode
+            localSubcategories.forEach((sub, index) => {
+                const original = subcategories.find(s => s.id === sub.id);
+                if (original && original.order !== index) {
+                    updateSubcategory({ ...sub, order: index });
+                }
+            });
         }
 
         setIsModalOpen(false);
@@ -227,34 +239,43 @@ const CategorySettings: React.FC = () => {
         });
     };
 
+    const handleSubcategoryReorder = (newOrder: Subcategory[]) => {
+        setLocalSubcategories(newOrder);
+    };
+
     const handleDeleteSubcategory = () => {
         if (!editingItem || modalMode !== 'edit_subcategory') return;
         const sub = editingItem as Subcategory;
 
-        if (window.confirm(`確定要刪除「${sub.name}」嗎？相關交易將移至「未分類」。`)) {
-            let uncategorized = subcategories.find(s => s.parentId === sub.parentId && s.name === 'Uncategorized');
+        setConfirmConfig({
+            title: '刪除子分類',
+            message: `確定要刪除「${sub.name}」嗎？相關交易將移至「未分類」。`,
+            onConfirm: () => {
+                let uncategorized = subcategories.find(s => s.parentId === sub.parentId && s.name === '未分類');
 
-            if (!uncategorized) {
-                const newUncategorized: Subcategory = {
-                    id: uuidv4(),
-                    parentId: sub.parentId,
-                    name: 'Uncategorized',
-                    yearlyBudget: 0,
-                    isHidden: false,
-                    order: 999
-                };
-                addSubcategory(newUncategorized);
-                uncategorized = newUncategorized;
+                if (!uncategorized) {
+                    const newUncategorized: Subcategory = {
+                        id: uuidv4(),
+                        parentId: sub.parentId,
+                        name: '未分類',
+                        yearlyBudget: 0,
+                        isHidden: false,
+                        order: 999
+                    };
+                    addSubcategory(newUncategorized);
+                    uncategorized = newUncategorized;
+                }
+
+                const relatedTransactions = transactions.filter(t => t.subcategoryId === sub.id);
+                relatedTransactions.forEach(t => {
+                    updateTransaction({ ...t, subcategoryId: uncategorized!.id });
+                });
+
+                deleteSubcategory(sub.id);
+                setIsModalOpen(false);
             }
-
-            const relatedTransactions = transactions.filter(t => t.subcategoryId === sub.id);
-            relatedTransactions.forEach(t => {
-                updateTransaction({ ...t, subcategoryId: uncategorized!.id });
-            });
-
-            deleteSubcategory(sub.id);
-            setIsModalOpen(false);
-        }
+        });
+        setIsConfirmOpen(true);
     };
 
     const initiateDeleteCategory = () => {
@@ -344,6 +365,7 @@ const CategorySettings: React.FC = () => {
                             onEdit={openEditCategoryModal}
                             onEditSubcategory={openEditSubcategoryModal}
                             onAddSubcategory={openAddSubcategoryModal}
+                            onReorderSubcategories={openReorderModal}
                             onToggleVisibility={toggleVisibility}
                         />
                     ))}
@@ -378,7 +400,8 @@ const CategorySettings: React.FC = () => {
                                     modalMode === 'edit_category' ? '編輯分類' :
                                         modalMode === 'add_subcategory' ? '新增子分類' :
                                             modalMode === 'edit_subcategory' ? '編輯子分類' :
-                                                '刪除分類'}
+                                                modalMode === 'reorder_subcategories' ? '變更排序' :
+                                                    '刪除分類'}
                             </h3>
 
                             {modalMode === 'delete_category_prompt' ? (
@@ -416,55 +439,54 @@ const CategorySettings: React.FC = () => {
                                 </div>
                             ) : (
                                 <>
-                                    <div className="space-y-3 mb-6">
-                                        {modalMode !== 'edit_subcategory' && modalMode !== 'add_subcategory' && (
-                                            <>
-                                                <div>
-                                                    <label className="text-xs text-gray-500 block mb-1">圖示</label>
-                                                    <input
-                                                        type="text"
-                                                        value={formIcon}
-                                                        onChange={(e) => setFormIcon(e.target.value)}
-                                                        className="w-12 h-12 text-center text-2xl border rounded-lg"
-                                                        placeholder=""
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className="text-xs text-gray-500 block mb-2">背景顏色</label>
-                                                    <div className="grid grid-cols-6 gap-2">
-                                                        {CATEGORY_COLORS.map((colorOption) => (
-                                                            <button
-                                                                key={colorOption.value}
-                                                                type="button"
-                                                                onClick={() => setFormColor(colorOption.value)}
-                                                                className={`w-10 h-10 rounded-full transition-all ${formColor === colorOption.value
-                                                                    ? 'ring-2 ring-offset-2 ring-blue-500 scale-110'
-                                                                    : 'hover:scale-105'
-                                                                    }`}
-                                                                style={{ backgroundColor: colorOption.value }}
-                                                                title={colorOption.name}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-
+                                    <div className="space-y-4 mb-6">
                                         <div>
                                             <label className="text-xs text-gray-500 block mb-1">名稱</label>
                                             <input
                                                 type="text"
                                                 value={formName}
                                                 onChange={(e) => setFormName(e.target.value)}
-                                                className="w-full px-4 py-2 border rounded-lg"
+                                                className="w-full px-4 py-2 border rounded-lg font-bold"
                                                 placeholder="請輸入名稱"
                                             />
                                         </div>
+
+                                        {modalMode === 'reorder_subcategories' && (
+                                            <div>
+                                                <label className="text-xs text-gray-500 block mb-2">拖曳以調整順序</label>
+                                                <Reorder.Group
+                                                    axis="y"
+                                                    values={localSubcategories}
+                                                    onReorder={handleSubcategoryReorder}
+                                                    className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar"
+                                                >
+                                                    {localSubcategories.map((sub) => (
+                                                        <Reorder.Item
+                                                            key={sub.id}
+                                                            value={sub}
+                                                            className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+                                                        >
+                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <span className="text-gray-400 text-lg select-none">☰</span>
+                                                                <span className="text-sm font-bold text-gray-700 truncate">
+                                                                    {sub.name}
+                                                                </span>
+                                                            </div>
+                                                            {sub.name === '未分類' && (
+                                                                <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded font-bold uppercase tracking-tighter shrink-0 ml-2">預設</span>
+                                                            )}
+                                                        </Reorder.Item>
+                                                    ))}
+                                                </Reorder.Group>
+                                                {localSubcategories.length === 0 && (
+                                                    <p className="text-center py-4 text-gray-400 text-xs bg-gray-50 rounded-xl border border-dashed">尚無子分類</p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex gap-2">
-                                        {modalMode !== 'add_category' && modalMode !== 'add_subcategory' && (
+                                        {modalMode !== 'add_category' && modalMode !== 'add_subcategory' && editingItem?.name !== '未分類' && (
                                             <button
                                                 onClick={modalMode === 'edit_category' ? initiateDeleteCategory : handleDeleteSubcategory}
                                                 className="px-4 py-2 text-red-500 bg-red-50 rounded-lg"
@@ -491,6 +513,14 @@ const CategorySettings: React.FC = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+            />
         </motion.div>
     );
 };

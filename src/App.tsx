@@ -12,6 +12,7 @@ import BottomNavigation from './components/BottomNavigation';
 import Login from './components/Login';
 import AdminSettings from './components/AdminSettings';
 import AccountSettings from './components/AccountSettings';
+import BatchReclassify from './components/BatchReclassify';
 import { AnimatePresence } from 'framer-motion';
 import { useFirebaseAuth } from './hooks/useFirebaseAuth';
 import { useAppContext } from './context/AppContext';
@@ -30,6 +31,7 @@ const AuthenticatedApp: React.FC = () => {
     { path: "/settings/budgets", element: <BudgetSettings /> },
     { path: "/settings/projects", element: <ProjectSettings /> },
     { path: "/settings/admin", element: <AdminSettings /> },
+    { path: "/settings/batch-reclassify", element: <BatchReclassify /> },
   ]);
 
   return (

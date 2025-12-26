@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import NumberPad from './NumberPad';
+import ConfirmDialog from './ConfirmDialog';
 import { useAppContext } from '../context/AppContext';
 import type { Transaction, TransactionType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, addDays, subDays } from 'date-fns';
+import { format, addDays, subDays, parseISO } from 'date-fns';
 
 interface AddTransactionProps {
     onClose: () => void;
@@ -195,7 +196,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
     } = useAppContext();
 
     // Initialize State from initialTransaction or default
-    const [amount, setAmount] = useState(initialTransaction ? initialTransaction.amount.toString() : '0');
+    const [amount, setAmount] = useState(initialTransaction?.amount?.toString() ?? '0');
 
     // Selection State
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialTransaction?.categoryId || null);
@@ -206,9 +207,21 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
     const [note, setNote] = useState(initialTransaction?.note || '');
     const [type, setType] = useState<TransactionType>(initialTransaction?.type || 'expense');
     const [date, setDate] = useState(() => {
-        if (initialTransaction) return format(new Date(initialTransaction.date), 'yyyy-MM-dd');
-        if (initialDate) return format(initialDate, 'yyyy-MM-dd');
-        return new Date().toISOString().split('T')[0];
+        if (initialTransaction && initialTransaction.date) {
+            try {
+                return format(new Date(initialTransaction.date), 'yyyy-MM-dd');
+            } catch (e) {
+                console.error("Invalid initialTransaction date", e);
+            }
+        }
+        if (initialDate) {
+            try {
+                return format(initialDate, 'yyyy-MM-dd');
+            } catch (e) {
+                console.error("Invalid initialDate", e);
+            }
+        }
+        return format(new Date(), 'yyyy-MM-dd');
     });
 
     const handlePrevDay = () => {
@@ -233,36 +246,33 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
     const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false);
     const [newSubcategoryName, setNewSubcategoryName] = useState('');
 
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
     const handleNumberClick = (num: string) => {
         // Map 'plus'/'minus' to symbols
         const val = num === 'plus' ? '+' : num === 'minus' ? '-' : num;
 
         if (amount === '0' && val !== '.') {
-            // Don't append operator to 0 if it's the first char, unless it's minus(?) - simplicity: replace 0
-            // But if input is '+', "0+" is weird. Let's allow replacing 0 with number, or appending operator to valid number.
             if (val === '+' || val === '-') {
                 setAmount(prev => prev + val);
             } else {
                 setAmount(val);
             }
         } else {
-            // Prevent multiple dots in specific number segment is hard with simple string, simplified check:
-            // Just prevent double operators or multiple dots in sequence for now.
+            // Prevent multiple dots in specific number segment
             const lastChar = amount.slice(-1);
             const isOperator = (char: string) => char === '+' || char === '-';
 
             if (val === '.') {
-                // simple check: if last char is dot or operator, ignore
                 if (lastChar === '.' || isOperator(lastChar)) return;
-                // strict check: find last operator, check if dot exists after it
                 const parts = amount.split(/[\+\-]/);
                 const currentNum = parts[parts.length - 1];
                 if (currentNum.includes('.')) return;
             }
 
             if (isOperator(val)) {
-                if (isOperator(lastChar)) return; // Don't allow ++ or +-
-                if (lastChar === '.') return; // Don't allow .+
+                if (isOperator(lastChar)) return;
+                if (lastChar === '.') return;
             }
 
             setAmount((prev) => prev + val);
@@ -273,38 +283,23 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         setAmount((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'));
     };
 
-    const handleConfirm = () => {
-        // 1. Check if it needs calculation
+    const handleConfirm = async () => {
+        // ... (calculation logic remains same)
         if (amount.includes('+') || amount.includes('-')) {
             try {
-                // Safe evaluation
-                // Remove trailing operators
                 let expr = amount;
                 if (['+', '-', '.'].includes(expr.slice(-1))) {
                     expr = expr.slice(0, -1);
                 }
-
-                // Function to safely evaluate math expression string "100+20-5"
-                // const result = new Function('return ' + expr)(); // eval-like, maybe too risky? 
-                // Let's implement simple parser since we only have + and -
-
-                // Split by operators but keep them
-                // const parts = expr.split(/([\+\-])/);
-                // Actually, let's just use a simple reducer approach
-
-                // Better approach: replace sub-expressions
-                // Or simply:
                 const result = expr.split('+').reduce((sum, term) => {
                     return sum + term.split('-').reduce((subSum, subTerm, idx) => {
                         const val = parseFloat(subTerm) || 0;
                         return idx === 0 ? subSum + val : subSum - val;
                     }, 0);
                 }, 0);
-
-                // Round to reasonable decimals (e.g. 2)
                 const finalVal = Math.round(result * 100) / 100;
                 setAmount(finalVal.toString());
-                return; // Stop here to let user see result
+                return;
             } catch (e) {
                 console.error("Calculation error", e);
                 return;
@@ -319,27 +314,34 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         const val = parseFloat(amount);
         if (val === 0) return;
 
-        const transactionData = {
-            id: initialTransaction ? initialTransaction.id : uuidv4(),
-            amount: val,
-            currency: currency,
-            categoryId: selectedCategoryId,
-            subcategoryId: selectedSubcategoryId || '',
-            tags: selectedProjectIds,
-            date: new Date(date),
-            note,
-            type,
-            createdAt: initialTransaction ? initialTransaction.createdAt : new Date(),
-            updatedAt: new Date(),
-        };
+        try {
+            const isEditing = !!initialTransaction?.id;
 
-        if (initialTransaction) {
-            updateTransaction(transactionData);
-        } else {
-            addTransaction(transactionData);
+            const transactionData = {
+                id: isEditing ? (initialTransaction as Transaction).id : '', // id will be generated if missing
+                amount: val,
+                currency: currency,
+                categoryId: selectedCategoryId,
+                subcategoryId: selectedSubcategoryId || '',
+                tags: selectedProjectIds,
+                // Use parseISO to ensure 2025-12-26 becomes 2025-12-26T00:00:00 LOCAL
+                date: parseISO(date),
+                note,
+                type,
+                createdAt: isEditing ? (initialTransaction as Transaction).createdAt : new Date(),
+                updatedAt: new Date(),
+            } as any;
+
+            if (isEditing) {
+                await updateTransaction(transactionData);
+            } else {
+                await addTransaction(transactionData);
+            }
+            onClose();
+        } catch (error) {
+            console.error("Error saving transaction:", error);
+            alert("儲存失敗，請檢查網路連線或稍後再試。");
         }
-
-        onClose();
     };
 
 
@@ -416,7 +418,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
 
 
     // Filtered Content Logic
-    const currentCategories = categories
+    const currentCategories = (categories || [])
         .filter((c) => !c.isHidden) // Show all visible categories
         .sort((a, b) => {
             // Sort by Type first (Expense -> Income)
@@ -428,7 +430,7 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         });
 
 
-    const currentSubcategories = selectedCategoryId
+    const currentSubcategories = (selectedCategoryId && subcategories)
         ? subcategories.filter((s) => s.parentId === selectedCategoryId)
         : [];
 
@@ -477,7 +479,13 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                         }}
                     >
                         <div className="text-sm font-bold text-gray-600 flex items-center justify-center gap-1 pointer-events-none relative z-10">
-                            {format(new Date(date), 'yyyy/MM/dd')}
+                            {(() => {
+                                try {
+                                    return date ? format(new Date(date), 'yyyy/MM/dd') : '----/--/--';
+                                } catch (e) {
+                                    return '----/--/--';
+                                }
+                            })()}
                         </div>
                         <input
                             id="date-trigger"
@@ -505,25 +513,32 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                 {/* Right Slot: Trash Button / Spacer */}
                 <div className="flex-1 flex justify-end">
                     {initialTransaction ? (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                // 使用 setTimeout 避免 confirm 視窗與動畫或事件循環衝突
-                                setTimeout(() => {
-                                    if (window.confirm('確定要刪除這筆交易嗎？')) {
-                                        deleteTransaction(initialTransaction.id);
-                                        onClose();
-                                    }
-                                }, 10);
-                            }}
-                            className="p-2 text-red-500 active:bg-red-50 rounded-full transition-colors"
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
-                            </svg>
-                        </button>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setShowDeleteConfirm(true);
+                                }}
+                                className="p-2 text-red-500 active:bg-red-50 rounded-full transition-colors"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
+                                </svg>
+                            </button>
+
+                            <ConfirmDialog
+                                isOpen={showDeleteConfirm}
+                                onClose={() => setShowDeleteConfirm(false)}
+                                onConfirm={async () => {
+                                    await deleteTransaction((initialTransaction as Transaction).id);
+                                    onClose();
+                                }}
+                                title="刪除交易"
+                                message="確定要刪除這筆交易嗎？"
+                            />
+                        </div>
                     ) : (
                         <div className="w-10"></div>
                     )}

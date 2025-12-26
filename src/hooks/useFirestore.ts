@@ -69,6 +69,9 @@ export const useFirestoreCollection = <T extends { id: string }>(
 
     // CRUD Helper functions
     const add = async (item: Omit<T, 'id' | 'createdAt' | 'updatedAt'>) => {
+        if (!collectionPath) {
+            throw new Error("Collection path is empty");
+        }
         const colRef = collection(db, collectionPath);
         return addDoc(colRef, {
             ...item,
@@ -78,6 +81,9 @@ export const useFirestoreCollection = <T extends { id: string }>(
     };
 
     const update = async (id: string, updates: Partial<T>) => {
+        if (!collectionPath || !id) {
+            throw new Error("Collection path or id is empty");
+        }
         const docRef = doc(db, collectionPath, id);
         // Exclude id from updates to avoid overwriting it (though Firestore ignores it usually)
         const { id: _, ...dataToUpdate } = updates as any;

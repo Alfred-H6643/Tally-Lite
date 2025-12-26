@@ -70,13 +70,14 @@ const TransactionItem = React.memo(({ t, category, subcategory, projectTag, isLa
 
     const handleEdit = useCallback(() => {
         onEditClick(t);
-    }, [onEditClick, t]);
+    }, [t, onEditClick]);
 
     return (
         <div className="relative overflow-hidden group mb-[1px]">
             <div
                 id={`transaction-${t.id}`}
                 className={`relative z-10 flex items-center px-4 py-3 bg-[#F9F9F9] ${!isLast ? 'border-b border-gray-100' : ''}`}
+                onClick={handleEdit}
             >
                 {/* Icon */}
                 <div
@@ -94,7 +95,7 @@ const TransactionItem = React.memo(({ t, category, subcategory, projectTag, isLa
                             className="text-gray-700 font-bold text-base truncate cursor-pointer hover:underline decoration-gray-400 underline-offset-2"
                             onClick={handleEdit}
                         >
-                            {subcategory?.name || category?.name}
+                            {(!subcategory || subcategory.name === '未分類') ? category?.name : subcategory.name}
                         </span>
                         {projectTag && (
                             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium whitespace-nowrap border border-blue-200 shrink-0">
@@ -134,6 +135,25 @@ const Dashboard: React.FC = () => {
     } = useAppContext();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+    // --- ID Map Lookups for Efficiency (O(1) instead of O(N)) ---
+    const categoryMap = useMemo(() => {
+        const map = new Map();
+        categories.forEach(c => map.set(c.id, c));
+        return map;
+    }, [categories]);
+
+    const subcategoryMap = useMemo(() => {
+        const map = new Map();
+        subcategories.forEach(s => map.set(s.id, s));
+        return map;
+    }, [subcategories]);
+
+    const projectTagMap = useMemo(() => {
+        const map = new Map();
+        projectTags.forEach(p => map.set(p.id, p));
+        return map;
+    }, [projectTags]);
 
     // Auto-scroll to last modified transaction
     useEffect(() => {
@@ -200,7 +220,6 @@ const Dashboard: React.FC = () => {
 
 
     // Group by Date for List
-    // Group by Date for List
     const groupedTransactions = useMemo(() => {
         const groups: { [key: string]: { transactions: Transaction[]; income: number; expense: number } } = {};
         monthlyTransactions.forEach((t) => {
@@ -237,37 +256,7 @@ const Dashboard: React.FC = () => {
         >
             {/* Header Area */}
             <div className="bg-white z-10 sticky top-0 px-4 py-3 border-b border-gray-100">
-                <div className="flex justify-between items-center relative">
-                    {/* Left: Close/Back (Placeholder to match screenshot) */}
-                    {/* Left: Empty placeholder to keep layout balanced if needed, or just nothing. 
-                        User asked to remove X. Let's leave an empty div if alignment is needed, 
-                        BUT the request says "remove/hide". 
-                        The header uses 'justify-between'. If I remove left item, Center Date Pill might not be centered relative to screen.
-                        However, justify-between with 3 items puts one left, one center, one right.
-                        If I remove left, it becomes start-end spread? No, justify-between with 2 items pushes them to edges.
-                        Let's check code:
-                        <div className="flex justify-between items-center relative">
-                           {Left} {Center} {Right}
-                        </div>
-                        If I remove Left, Center will be on far Left?
-                        Wait, Date Pill is NOT absolute center. It's flex item.
-                        To keep Date Pill centered-ish or consistent, I should probably keep an invisible spacer or make it hidden.
-                        User said "hide or remove".
-                        I'll replace it with an invisible div of same size to maintain layout balance if that was the intent,
-                        OR just remove.
-                        Given "justify-between" on parent line 57, removing the first child will make the Date Pill the first child, so it will go to the LEFT.
-                        The Right total amount will go to RIGHT.
-                        The user probably wants the Date Pill centered?
-                        Actually, looking at the code:
-                        Line 57: flex justify-between items-center relative
-                        If I remove the first button, we have 2 items. Left=DatePill, Right=Total.
-                        DatePill will be on left edge. That might look weird if it was centered before.
-                        Let's see the previous code again.
-                        It had 3 items: X Button, Date Pill, Total Amount.
-                        It was: | X | Date | Total |  (roughly spread)
-                        If I replace X with <div className="w-8" /> it keeps the spacing.
-                        I'll do that.
-                    */}
+                <div className="flex items-center relative h-10">
                     {/* Left: User Avatar & Name */}
                     <div
                         onClick={() => navigate('/settings/account')}
@@ -281,8 +270,8 @@ const Dashboard: React.FC = () => {
                         </span>
                     </div>
 
-                    {/* Center: Date Pill */}
-                    <div className="flex items-center bg-gray-100 rounded-full px-1 py-1">
+                    {/* Center: Date Pill - Absolutely positioned */}
+                    <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-gray-100 rounded-full px-1 py-1">
                         <button onClick={handlePrevMonth} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                         </button>
@@ -297,9 +286,8 @@ const Dashboard: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Right: Total Amount (Net) */}
-                    {/* Right: Total Amount (Split) */}
-                    <div className="flex flex-col items-end text-xs">
+                    {/* Right: Monthly Totals - Fixed width to prevent layout shift */}
+                    <div className="ml-auto flex flex-col items-end text-xs min-w-[90px]">
                         {monthlyTotals.income > 0 && (
                             <div className="text-green-500 font-medium">
                                 <span className="text-[10px] text-gray-400 mr-1">收</span>
@@ -327,12 +315,12 @@ const Dashboard: React.FC = () => {
 
                         <div className="">
                             {trans.map((t, index) => {
-                                const category = categories.find(c => c.id === t.categoryId);
-                                const subcategory = subcategories.find(s => s.id === t.subcategoryId);
+                                const category = categoryMap.get(t.categoryId);
+                                const subcategory = subcategoryMap.get(t.subcategoryId);
 
                                 // Project Tag (Show only the first one)
                                 const projectTagId = t.tags && t.tags.length > 0 ? t.tags[0] : null;
-                                const projectTag = projectTagId ? projectTags.find(p => p.id === projectTagId) : null;
+                                const projectTag = projectTagId ? projectTagMap.get(projectTagId) : null;
 
                                 return (
                                     <TransactionItem
@@ -364,7 +352,7 @@ const Dashboard: React.FC = () => {
                 currentDate={currentMonth}
                 onSelect={setCurrentMonth}
             />
-        </motion.div >
+        </motion.div>
     );
 };
 

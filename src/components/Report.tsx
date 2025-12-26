@@ -170,6 +170,7 @@ const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClic
                     {format(new Date(transaction.date), 'yyyy/MM/dd')}
                     {transaction.tags && transaction.tags.length > 0 && (() => {
                         const tagId = transaction.tags[0];
+                        // Using tagId with any map or array lookup
                         const tag = projectTags.find(p => p.id === tagId);
                         return tag ? (
                             <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium border border-blue-200">
@@ -418,6 +419,19 @@ const Report: React.FC = () => {
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
     const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
 
+    // --- ID Map Lookups for Efficiency (O(1) instead of O(N)) ---
+    const categoryMap = useMemo(() => {
+        const map = new Map();
+        categories.forEach(c => map.set(c.id, c));
+        return map;
+    }, [categories]);
+
+    const subcategoryMap = useMemo(() => {
+        const map = new Map();
+        subcategories.forEach(s => map.set(s.id, s));
+        return map;
+    }, [subcategories]);
+
     const closeDatePicker = useCallback(() => setIsDatePickerOpen(false), []);
 
     // Date Range Calculations - 使用 appliedCustomRange 而非 customRange
@@ -571,7 +585,7 @@ const Report: React.FC = () => {
         }[] = [];
 
         relevantTransactions.forEach((t) => {
-            const category = categories.find((c) => c.id === t.categoryId);
+            const category = categoryMap.get(t.categoryId);
             // Skip if category not found or category type doesn't match current transaction type
             if (!category || category.type !== transactionType) return;
 
@@ -622,19 +636,28 @@ const Report: React.FC = () => {
             }
 
             const categoryTransactions = getRelevantTransactions(categoryId);
-            const subcategoryMap = new Map<string, { subcategory: any; total: number; subTransactions: any[] }>();
+            const subcategoryMapData = new Map<string, { subcategory: any; total: number; subTransactions: any[] }>();
 
             categoryTransactions.forEach(t => {
-                const subcategory = subcategories.find(s => s.id === t.subcategoryId);
-                if (!subcategory) return;
+                let subcategory = subcategoryMap.get(t.subcategoryId);
 
-                const existing = subcategoryMap.get(subcategory.id);
+                // If subcategory doesn't exist (orphaned transaction), treat it as "未分類"
+                if (!subcategory) {
+                    // Find or create "未分類" for this category
+                    const category = categoryMap.get(categoryId);
+                    if (!category) return;
+
+                    subcategory = subcategories.find(s => s.parentId === categoryId && s.name === '未分類');
+                    if (!subcategory) return; // Skip if somehow uncategorized doesn't exist
+                }
+
+                const existing = subcategoryMapData.get(subcategory.id);
                 const amountTWD = convertAmountToTWD(t.amount, t.currency || 'TWD');
                 if (existing) {
                     existing.total += amountTWD;
                     existing.subTransactions.push(t);
                 } else {
-                    subcategoryMap.set(subcategory.id, {
+                    subcategoryMapData.set(subcategory.id, {
                         subcategory,
                         total: amountTWD,
                         subTransactions: [t]
@@ -642,7 +665,7 @@ const Report: React.FC = () => {
                 }
             });
 
-            map.set(categoryId, Array.from(subcategoryMap.values()).sort((a, b) => b.total - a.total));
+            map.set(categoryId, Array.from(subcategoryMapData.values()).sort((a: any, b: any) => b.total - a.total));
         });
         return map;
     }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget]);

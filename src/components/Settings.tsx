@@ -275,7 +275,7 @@ const Settings: React.FC = () => {
 
                 <div className="mt-8">
                     <h3 className="text-sm font-bold text-gray-500 mb-3 px-1 uppercase">
-                        資料匯入/匯出
+                        資料管理
                     </h3>
                     <div className="space-y-3">
                         <button
@@ -322,6 +322,19 @@ const Settings: React.FC = () => {
                             <div className="flex-1">
                                 <h3 className="font-medium text-gray-900">匯入交易記錄 (CSV)</h3>
                                 <p className="text-xs text-gray-500">支援 UTF-8 格式，單次上限 500 筆</p>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => navigate('/settings/batch-reclassify')}
+                            className="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
+                        >
+                            <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-xl">
+                                🔄
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-medium text-gray-900">批次變更交易分類</h3>
+                                <p className="text-xs text-gray-500">搜尋並批次修改交易的分類</p>
                             </div>
                         </button>
 

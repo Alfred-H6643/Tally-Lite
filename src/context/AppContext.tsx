@@ -21,6 +21,7 @@ interface AppContextType {
     deleteTransaction: (id: string) => void;
     updateTransaction: (transaction: Transaction) => void;
     batchDeleteTransactions: (ids: string[]) => Promise<void>;
+    batchUpdateTransactions: (updates: { id: string, data: Partial<Transaction> }[]) => Promise<void>;
     addCategory: (category: Category) => void;
     updateCategory: (category: Category) => void;
     deleteCategory: (id: string) => void;
@@ -197,14 +198,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     // Wrappers to match Context Interface
-    const addTransaction = React.useCallback((transaction: Transaction) => {
+    const addTransaction = React.useCallback(async (transaction: Transaction) => {
         const { id, ...data } = transaction;
-        addTransactionFn(data);
-        setLastModifiedTransactionId(transaction.id);
+        const result = await addTransactionFn(data);
+        const newId = result.id;
+        setLastModifiedTransactionId(newId);
+        return newId;
     }, [addTransactionFn]);
 
-    const updateTransaction = React.useCallback((transaction: Transaction) => {
-        updateTransactionFn(transaction.id, transaction);
+    const updateTransaction = React.useCallback(async (transaction: Transaction) => {
+        await updateTransactionFn(transaction.id, transaction);
         setLastModifiedTransactionId(transaction.id);
     }, [updateTransactionFn]);
 
@@ -233,6 +236,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 await batch.commit();
             } catch (error) {
                 console.error('Error committing batch delete:', error);
+            }
+        }
+    };
+
+    const batchUpdateTransactions = async (updates: { id: string, data: Partial<Transaction> }[]) => {
+        if (!user || updates.length === 0) return;
+
+        const CHUNK_SIZE = 400;
+        for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+            const chunk = updates.slice(i, i + CHUNK_SIZE);
+            const batch = writeBatch(db);
+            chunk.forEach(update => {
+                const docRef = doc(db, 'users', user.uid, 'transactions', update.id);
+                batch.update(docRef, update.data);
+            });
+            try {
+                await batch.commit();
+            } catch (error) {
+                console.error('Error committing batch update:', error);
             }
         }
     };
@@ -321,7 +343,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     const openModal = React.useCallback((transaction?: Transaction, date?: Date) => {
-        setEditingTransaction(transaction);
+        // Ensure we don't accidentally treat a click event as a transaction object
+        const isTransaction = transaction && 'amount' in transaction && 'categoryId' in transaction;
+        setEditingTransaction(isTransaction ? transaction : undefined);
         setInitialDate(date);
         setIsModalOpen(true);
     }, []);
@@ -351,6 +375,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 deleteTransaction,
                 updateTransaction,
                 batchDeleteTransactions,
+                batchUpdateTransactions,
                 addCategory,
                 updateCategory,
                 deleteCategory,

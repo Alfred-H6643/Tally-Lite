@@ -1,0 +1,14 @@
+{
+    "name": "ah-track-money-scripts",
+    "version": "1.0.0",
+    "description": "Data migration and management scripts for ah-track-money",
+    "type": "module",
+    "scripts": {
+        "set-roles": "node setUserRoles.js",
+        "copy-data": "node copyUserData.js"
+    },
+    "dependencies": {
+        "firebase-admin": "^12.0.0",
+        "dotenv": "^16.0.3"
+    }
+}

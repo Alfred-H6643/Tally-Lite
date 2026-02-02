@@ -44,6 +44,16 @@ const AccountSettings: React.FC = () => {
         }
     };
 
+    const handleToggleShowEmptyDays = async () => {
+        try {
+            await updateUserProfile({
+                showEmptyDays: !userProfile.showEmptyDays
+            });
+        } catch (error) {
+            console.error('Failed to toggle setting:', error);
+        }
+    };
+
     const handleLogout = async () => {
         setIsConfirmOpen(true);
     };
@@ -95,6 +105,12 @@ const AccountSettings: React.FC = () => {
                             {selectedAvatar}
                         </div>
                         <p className="text-sm text-gray-500 font-medium">{user?.email}</p>
+                        <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100">
+                            <span className="text-xs">{userProfile.role === 'admin' ? '🔑' : '👤'}</span>
+                            <span className="text-xs font-bold text-indigo-700">
+                                {userProfile.role === 'admin' ? '管理員' : '一般用戶'}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="space-y-4">
@@ -109,6 +125,28 @@ const AccountSettings: React.FC = () => {
                                 className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-blue-500 transition-all"
                             />
                             <p className="text-[10px] text-gray-400 mt-1 px-1 text-right">{displayName.length}/15</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-3 px-1">顯示設定</label>
+                            <div className="bg-white rounded-xl p-4 border border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-900">顯示沒有費用的日期</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        在首頁列表中顯示當月無交易記錄的日期
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => handleToggleShowEmptyDays()}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${userProfile.showEmptyDays ? 'bg-blue-500' : 'bg-gray-200'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${userProfile.showEmptyDays ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
                         </div>
 
                         <div>

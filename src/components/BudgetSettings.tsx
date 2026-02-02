@@ -30,7 +30,10 @@ const BudgetSettings: React.FC = () => {
     const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
     const [formCategoryId, setFormCategoryId] = useState('');
     const [formSubcategoryId, setFormSubcategoryId] = useState('');
+
     const [formAmount, setFormAmount] = useState('0');
+    const [budgetInputMode, setBudgetInputMode] = useState<'yearly' | 'monthly'>('yearly');
+    const [monthlyInputs, setMonthlyInputs] = useState<string[]>(Array(12).fill('0'));
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{ title: string, message: string, onConfirm: () => void }>({
         title: '',
@@ -80,12 +83,27 @@ const BudgetSettings: React.FC = () => {
 
 
 
+
+
     // 打開編輯預算 Modal
     const openEditBudgetModal = (budget: Budget) => {
         setModalMode('edit');
         setFormCategoryId(budget.categoryId || '');
         setFormSubcategoryId(budget.subcategoryId || '');
         setFormAmount(budget.amount.toString());
+
+        if (budget.monthlyAmounts && budget.monthlyAmounts.length === 12) {
+            setBudgetInputMode('monthly');
+            setMonthlyInputs(budget.monthlyAmounts.map(val => val.toString()));
+        } else {
+            setBudgetInputMode('yearly');
+            // If switching to monthly, we should probably pre-fill with average? 
+            // Or just init as 0. Let's init as avg logic in the UI render or useEffect if needed.
+            // For now, reset to average of current amount
+            const avg = Math.round(budget.amount / 12);
+            setMonthlyInputs(Array(12).fill(avg.toString()));
+        }
+
         setEditingBudget(budget);
         setIsModalOpen(true);
     };
@@ -98,10 +116,24 @@ const BudgetSettings: React.FC = () => {
 
     // 保存預算
     const handleSave = () => {
-        const amount = parseFloat(formAmount) || 0;
-        if (amount <= 0) {
-            alert('預算金額必須大於 0');
-            return;
+        let amount = 0;
+        let finalMonthlyAmounts: number[] | undefined = undefined;
+
+        if (budgetInputMode === 'yearly') {
+            amount = parseFloat(formAmount) || 0;
+            if (amount <= 0) {
+                alert('預算金額必須大於 0');
+                return;
+            }
+        } else {
+            // Monthly Mode
+            const months = monthlyInputs.map(v => parseFloat(v) || 0);
+            amount = months.reduce((a, b) => a + b, 0);
+            if (amount <= 0) {
+                alert('預算總額必須大於 0');
+                return;
+            }
+            finalMonthlyAmounts = months;
         }
 
         if (!formCategoryId) {
@@ -113,6 +145,7 @@ const BudgetSettings: React.FC = () => {
             updateBudget({
                 ...editingBudget,
                 amount,
+                monthlyAmounts: finalMonthlyAmounts,
                 updatedAt: new Date()
             });
         } else {
@@ -122,6 +155,7 @@ const BudgetSettings: React.FC = () => {
                 categoryId: formCategoryId,
                 subcategoryId: formSubcategoryId || undefined,
                 amount,
+                monthlyAmounts: finalMonthlyAmounts,
                 createdAt: new Date(),
                 updatedAt: new Date()
             });
@@ -280,7 +314,10 @@ const BudgetSettings: React.FC = () => {
                                                 <span className="font-medium text-gray-900">{category.name}</span>
                                                 {categoryTotalBudget > 0 ? (
                                                     <span className="text-sm text-green-600 font-medium">
-                                                        ${categoryTotalBudget.toLocaleString()} / 年 (總和)
+                                                        ${categoryTotalBudget.toLocaleString()} / 年
+                                                        <span className="text-gray-400 text-xs ml-2 font-normal">
+                                                            (${Math.round(categoryTotalBudget / 12).toLocaleString()} / 月)
+                                                        </span>
                                                     </span>
                                                 ) : (
                                                     <span className="text-sm text-gray-400">未設定子預算</span>
@@ -322,6 +359,9 @@ const BudgetSettings: React.FC = () => {
                                                             {subBudget ? (
                                                                 <div className="text-xs text-green-600 font-medium mt-0.5">
                                                                     ${subBudget.amount.toLocaleString()} / 年
+                                                                    <span className="text-gray-400 ml-2 font-normal">
+                                                                        (${Math.round(subBudget.amount / 12).toLocaleString()} / 月)
+                                                                    </span>
                                                                 </div>
                                                             ) : (
                                                                 <div className="text-xs text-gray-400 mt-0.5">未設定</div>
@@ -335,6 +375,8 @@ const BudgetSettings: React.FC = () => {
                                                                     setFormCategoryId(category.id);
                                                                     setFormSubcategoryId(sub.id);
                                                                     setFormAmount('0');
+                                                                    setBudgetInputMode('yearly');
+                                                                    setMonthlyInputs(Array(12).fill('0'));
                                                                     setModalMode('add');
                                                                     setIsModalOpen(true);
                                                                 }
@@ -435,18 +477,77 @@ const BudgetSettings: React.FC = () => {
                                         )}
 
                                         <div>
-                                            <label className="text-xs text-gray-500 block mb-1">年度預算金額</label>
-                                            <input
-                                                type="number"
-                                                value={formAmount}
-                                                onChange={(e) => setFormAmount(e.target.value)}
-                                                className="w-full px-4 py-2 border rounded-lg"
-                                                placeholder="0"
-                                                autoFocus
-                                            />
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                每月：${Math.round((parseFloat(formAmount) || 0) / 12).toLocaleString()}
-                                            </p>
+                                            <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+                                                <button
+                                                    onClick={() => setBudgetInputMode('yearly')}
+                                                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${budgetInputMode === 'yearly' ? 'bg-white shadow text-gray-900 border border-gray-100' : 'text-gray-500'
+                                                        }`}
+                                                >
+                                                    年度總額
+                                                </button>
+                                                <button
+                                                    onClick={() => setBudgetInputMode('monthly')}
+                                                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${budgetInputMode === 'monthly' ? 'bg-white shadow text-gray-900 border border-gray-100' : 'text-gray-500'
+                                                        }`}
+                                                >
+                                                    每月細項
+                                                </button>
+                                            </div>
+
+                                            {budgetInputMode === 'yearly' ? (
+                                                <div>
+                                                    <label className="text-xs text-gray-500 block mb-1">年度預算金額</label>
+                                                    <input
+                                                        type="number"
+                                                        value={formAmount}
+                                                        onChange={(e) => setFormAmount(e.target.value)}
+                                                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                        placeholder="0"
+                                                        autoFocus
+                                                    />
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        平均每月：${Math.round((parseFloat(formAmount) || 0) / 12).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                                                        <span className="text-xs text-blue-600">快速填寫</span>
+                                                        <button
+                                                            onClick={() => setMonthlyInputs(Array(12).fill(monthlyInputs[0] || '0'))}
+                                                            className="text-xs bg-white border border-blue-200 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 transition-colors"
+                                                        >
+                                                            以一月複製到全年
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 gap-y-3 max-h-[300px] overflow-y-auto pr-2">
+                                                        {monthlyInputs.map((val, idx) => (
+                                                            <div key={idx} className="flex items-center gap-3">
+                                                                <label className="text-sm text-gray-500 w-12 font-medium">{idx + 1} 月</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={val}
+                                                                    onChange={e => {
+                                                                        const newInputs = [...monthlyInputs];
+                                                                        newInputs[idx] = e.target.value;
+                                                                        setMonthlyInputs(newInputs);
+                                                                    }}
+                                                                    className="flex-1 px-3 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                                    placeholder="0"
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-2">
+                                                        <span className="text-sm text-gray-500">年度總計</span>
+                                                        <span className="text-lg font-bold text-blue-600 font-mono">
+                                                            ${monthlyInputs.reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 

@@ -139,6 +139,69 @@ const AdminSettings: React.FC = () => {
         setIsConfirmOpen(true);
     };
 
+    const handleSetRole = async () => {
+        const userIdInput = (document.getElementById('roleUserId') as HTMLInputElement)?.value.trim();
+        const roleSelect = (document.getElementById('roleType') as HTMLSelectElement)?.value as 'admin' | 'user';
+
+        if (!userIdInput) {
+            setMessage('❌ 請輸入用戶 UID');
+            return;
+        }
+
+        setConfirmConfig({
+            title: '設定用戶角色',
+            message: `確定要將用戶 ${userIdInput.substring(0, 8)}... 的角色設定為「${roleSelect === 'admin' ? '管理員' : '一般用戶'}」嗎？`,
+            onConfirm: async () => {
+                await executeSetRole(userIdInput, roleSelect);
+            }
+        });
+        setIsConfirmOpen(true);
+    };
+
+    const handleQuickSetRole = async (userId: string, role: 'admin' | 'user') => {
+        const displayName = userId === 'ftqQxIbyX6WRhLDhywYmwJ0yKw12' ? '正式帳號' : '開發帳號';
+        setConfirmConfig({
+            title: '快速設定角色',
+            message: `確定要將${displayName}的角色設定為「${role === 'admin' ? '管理員' : '一般用戶'}」嗎？`,
+            onConfirm: async () => {
+                await executeSetRole(userId, role);
+            }
+        });
+        setIsConfirmOpen(true);
+    };
+
+    const executeSetRole = async (userId: string, role: 'admin' | 'user') => {
+        setLoading(true);
+        setMessage(`正在設定角色...`);
+
+        try {
+            const { db } = await import('../services/firebase');
+            const { doc, setDoc, getDoc } = await import('firebase/firestore');
+
+            const profileRef = doc(db, `users/${userId}/config/profile`);
+            const profileSnap = await getDoc(profileRef);
+
+            if (profileSnap.exists()) {
+                // 更新現有 profile
+                await setDoc(profileRef, { role }, { merge: true });
+                setMessage(`✅ 已成功更新角色為「${role === 'admin' ? '管理員' : '一般用戶'}」`);
+            } else {
+                // 創建新 profile
+                await setDoc(profileRef, {
+                    displayName: '使用者',
+                    avatar: '👤',
+                    role
+                });
+                setMessage(`✅ 已創建 profile 並設定角色為「${role === 'admin' ? '管理員' : '一般用戶'}」`);
+            }
+        } catch (error: any) {
+            console.error('設定角色失敗:', error);
+            setMessage(`❌ 設定失敗: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -241,6 +304,65 @@ const AdminSettings: React.FC = () => {
                                 <p className="text-xs text-gray-500">將無效子分類的交易歸到「未分類」</p>
                             </div>
                         </button>
+                    </div>
+                </div>
+
+                {/* Role Management Section */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm">
+                    <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <span>🔑</span> 角色管理
+                    </h2>
+                    <p className="text-sm text-gray-500 mb-4">
+                        手動設定用戶角色。輸入用戶 UID 和角色後點擊設定。
+                    </p>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">用戶 UID</label>
+                            <input
+                                type="text"
+                                placeholder="例如: ftqQxIbyX6WRhLDhywYmwJ0yKw12"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
+                                id="roleUserId"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">角色</label>
+                            <select
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                id="roleType"
+                            >
+                                <option value="user">一般用戶 (user)</option>
+                                <option value="admin">管理員 (admin)</option>
+                            </select>
+                        </div>
+                        <button
+                            onClick={handleSetRole}
+                            disabled={loading}
+                            className="w-full bg-indigo-500 text-white font-bold py-3 rounded-xl hover:bg-indigo-600 transition-colors shadow-sm active:scale-[0.98] disabled:opacity-50"
+                        >
+                            設定角色
+                        </button>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-600 font-medium mb-2">快速設定:</p>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => handleQuickSetRole('ftqQxIbyX6WRhLDhywYmwJ0yKw12', 'user')}
+                                disabled={loading}
+                                className="w-full text-left px-3 py-2 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                                正式帳號 (alfred.mc.hsu@gmail.com) → 一般用戶
+                            </button>
+                            <button
+                                onClick={() => handleQuickSetRole('9HqyWH9f0dSwKAR5yIBUBfx4GFM2', 'admin')}
+                                disabled={loading}
+                                className="w-full text-left px-3 py-2 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                                開發帳號 → 管理員
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { mockDb } from '../services/mockDatabase';
@@ -23,7 +24,17 @@ const GUEST_USER: User = {
     photoURL: null
 };
 
-export const useFirebaseAuth = () => {
+interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+    logout: () => Promise<void>;
+    loginAsGuest: () => void;
+    isGuest: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [isGuest, setIsGuest] = useState(() => {
@@ -50,8 +61,6 @@ export const useFirebaseAuth = () => {
         sessionStorage.setItem('isGuest', 'true');
         setIsGuest(true);
         mockDb.reset(); // Reset mock DB on new guest login
-        // Force reload to sync state across components (Quick Fix for "No reaction")
-        window.location.reload();
     };
 
     const logout = async () => {
@@ -59,11 +68,24 @@ export const useFirebaseAuth = () => {
             sessionStorage.removeItem('isGuest');
             setIsGuest(false);
             setUser(null);
-            window.location.reload();
+            // Optionally reload to clear any other in-memory states if needed
+            // window.location.reload(); 
         } else {
             await signOut(auth);
         }
     };
 
-    return { user, loading, logout, loginAsGuest, isGuest };
+    return (
+        <AuthContext.Provider value={{ user, loading, logout, loginAsGuest, isGuest }}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

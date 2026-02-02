@@ -32,6 +32,7 @@ const AuthenticatedApp: React.FC = () => {
     { path: "/settings/projects", element: <ProjectSettings /> },
     { path: "/settings/admin", element: <AdminSettings /> },
     { path: "/settings/batch-reclassify", element: <BatchReclassify /> },
+    { path: "*", element: <Dashboard /> }, // 任何未知路由都導向主畫面
   ]);
 
   return (

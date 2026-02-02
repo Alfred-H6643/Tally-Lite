@@ -222,6 +222,7 @@ const SubcategoryReportItem = React.memo(({
     onEditClick
 }: SubcategoryReportItemProps) => {
     const subRemaining = subBudget !== null ? subBudget - total : null;
+    const usagePercent = subBudget ? Math.round((total / subBudget) * 100) : 0;
 
     const handleToggle = React.useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -242,8 +243,16 @@ const SubcategoryReportItem = React.memo(({
                     <div>
                         <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
                         {subBudget !== null && (
-                            <div className="text-xs text-gray-400">
+                            <div className="text-xs text-gray-400 mt-0.5">
                                 預算: TWD ${subBudget.toLocaleString()}
+                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                    ? 'bg-red-100 text-red-600'
+                                    : usagePercent === 100
+                                        ? 'bg-green-100 text-green-600'
+                                        : 'bg-gray-100 text-gray-500'
+                                    }`}>
+                                    {usagePercent}%
+                                </span>
                             </div>
                         )}
                     </div>
@@ -310,7 +319,9 @@ const CategoryReportItem = React.memo(({
 }: CategoryReportItemProps) => {
     const budget = item.budget;
     const remaining = budget !== null ? budget - item.value : null;
+
     const percent = budget ? Math.min(100, (item.value / budget) * 100) : 0;
+    const usagePercent = budget ? Math.round((item.value / budget) * 100) : 0;
 
     const handleToggle = useCallback(() => {
         onToggle(item.categoryId);
@@ -338,6 +349,14 @@ const CategoryReportItem = React.memo(({
                             {budget !== null && (
                                 <div className="text-xs text-gray-500">
                                     預算: TWD ${budget.toLocaleString()}
+                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                        ? 'bg-red-100 text-red-600'
+                                        : usagePercent === 100
+                                            ? 'bg-green-100 text-green-600'
+                                            : 'bg-gray-100 text-gray-500'
+                                        }`}>
+                                        {usagePercent}%
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -390,7 +409,7 @@ const CategoryReportItem = React.memo(({
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 });
 

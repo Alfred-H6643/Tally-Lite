@@ -48,7 +48,7 @@ const Settings: React.FC = () => {
         },
     ];
 
-    const { categories, subcategories, projectTags, addTransaction } = useAppContext();
+    const { categories, subcategories, projectTags, addTransaction, userProfile } = useAppContext();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleDownloadTemplate = () => {
@@ -362,10 +362,11 @@ const Settings: React.FC = () => {
                 {user && (
                     <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400">
                         <span>Logged in as: {user.email}</span>
-                        {user.email === 'alfred.mc.hsu@gmail.com' && (
+                        {userProfile.role === 'admin' && (
                             <button
                                 onClick={() => navigate('/settings/admin')}
                                 className="opacity-40 hover:opacity-100 transition-opacity"
+                                title="管理員設定"
                             >
                                 ⚙️
                             </button>

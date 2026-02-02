@@ -68,99 +68,94 @@ export const initializeDefaultData = () => {
     };
 
     const expenseCategoriesData: CategoryData[] = [
-        // 食物：有分類預算和部分子分類預算（飲料、零食、食材沒有子分類預算）
+        // 食物：移除「咖啡」、「食材」
         {
             name: '食物',
             icon: '🍔',
             color: '#FF6B6B',
-            subs: ['正餐', '咖啡', '飲料', '零食', '食材'],
+            subs: ['正餐', '飲料', '零食'],
             categoryBudget: 120000,
             subBudgets: {
-                '正餐': 60000,
-                '咖啡': 24000
+                '正餐': 60000
             }
         },
-        // 交通：只有分類預算，沒有子分類預算
+        // 交通：移除「租車」
         {
             name: '交通',
             icon: '🚌',
             color: '#4ECDC4',
-            subs: ['大眾運輸', '計程車', '租車'],
+            subs: ['大眾運輸', '計程車'],
             categoryBudget: 36000,
             subBudgets: {}
         },
-        // 居家：分類和所有子分類都有預算
+        // 居家：移除「消費品/設備」、「電信」、「稅」
         {
             name: '居家',
             icon: '🏠',
             color: '#45B7D1',
-            subs: ['雜費', '日用品', '消費品/設備', '電信', '稅'],
+            subs: ['雜費', '日用品'],
             categoryBudget: 72000,
             subBudgets: {
                 '雜費': 12000,
-                '日用品': 18000,
-                '消費品/設備': 24000,
-                '電信': 9600,
-                '稅': 8400
+                '日用品': 18000
             }
         },
-        // 健康：沒有分類預算，但有部分子分類預算（醫療、保健食品沒有預算）
+        // 健康：移除「按摩」、「身心」
         {
             name: '健康',
             icon: '💊',
             color: '#96CEB4',
-            subs: ['醫療', '保健食品', '保險', '按摩', '身心'],
+            subs: ['醫療', '保健食品', '保險'],
             categoryBudget: 0,
             subBudgets: {
-                '保險': 48000,
-                '按摩': 12000,
-                '身心': 6000
+                '保險': 48000
             }
         },
-        // 外觀：完全沒有預算
+        // 外觀 → 消費：移除「保養」
         {
-            name: '外觀',
+            name: '消費',
             icon: '👕',
             color: '#FFEEAD',
-            subs: ['剪髮', '服裝', '鞋子', '保養'],
+            subs: ['剪髮', '服裝', '鞋子'],
             categoryBudget: 0,
             subBudgets: {}
         },
-        // 社交：有分類預算和部分子分類預算（喝酒、公益沒有子分類預算）
+        // 社交：移除「喝酒」、「公益」
         {
             name: '社交',
             icon: '🎁',
             color: '#D4A5A5',
-            subs: ['聚餐', '喝酒', '送禮', '公益'],
+            subs: ['聚餐', '送禮'],
             categoryBudget: 48000,
             subBudgets: {
                 '聚餐': 30000,
                 '送禮': 12000
             }
         },
+        // 娛樂：移除「電影/表演/展覽」
         {
             name: '娛樂',
             icon: '🎮',
             color: '#9B59B6',
-            subs: ['電影/表演/展覽', '閱讀', '體驗', '遊戲', '串流'],
+            subs: ['閱讀', '體驗', '遊戲', '串流'],
             categoryBudget: 36000,
             subBudgets: {
                 '串流': 3600,
                 '遊戲': 6000
             }
         },
+        // 運動：移除「賽事」、「訓練課」、「補給」
         {
             name: '運動',
             icon: '🏃',
             color: '#3498DB',
-            subs: ['賽事', '裝備', '場地費', '訓練課', '補給'],
+            subs: ['裝備', '場地費'],
             categoryBudget: 24000,
             subBudgets: {
-                '場地費': 12000,
-                '補給': 6000
+                '場地費': 12000
             }
         },
-        // 旅行：大額分類，沒設定子分類預算
+        // 旅行：保持不變
         {
             name: '旅行',
             icon: '✈️',
@@ -169,7 +164,7 @@ export const initializeDefaultData = () => {
             categoryBudget: 150000,
             subBudgets: {}
         },
-        // 學習：沒有分類總預算，但有部分子分類預算
+        // 學習：保持不變
         {
             name: '學習',
             icon: '📚',
@@ -181,17 +176,7 @@ export const initializeDefaultData = () => {
                 '軟體': 12000
             }
         },
-        {
-            name: '家人',
-            icon: '👨‍👩‍👧',
-            color: '#E74C3C',
-            subs: ['fifi生活', 'fifi醫療'],
-            categoryBudget: 60000, // 年預算 60,000 TWD (月約 5,000)
-            subBudgets: {
-                'fifi生活': 36000,
-                'fifi醫療': 24000
-            }
-        },
+        // 家人：整個分類刪除
     ];
 
     expenseCategoriesData.forEach((c, index) => {

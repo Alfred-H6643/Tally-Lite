@@ -5,11 +5,15 @@ import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useFirestoreCollection } from '../hooks/useFirestore';
 import { db } from '../services/firebase';
 import { doc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { mockDb } from '../services/mockDatabase';
 
 export interface UserProfile {
     displayName: string;
     avatar: string;
+    role?: 'admin' | 'user'; // 預設為 'user'，用於權限控制
+    showEmptyDays?: boolean; // Default to true
 }
+
 
 interface AppContextType {
     categories: Category[];
@@ -72,28 +76,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const [userProfile, setUserProfile] = useState<UserProfile>({
         displayName: '神秘客',
-        avatar: '👤'
+        avatar: '👤',
+        role: 'user', // 預設為一般用戶
+        showEmptyDays: true
     });
 
     // Fetch user profile from Firestore
     React.useEffect(() => {
         if (!userId) return;
 
+        // Guest Profile handling
+        if (userId === 'GUEST') {
+            setUserProfile({
+                displayName: '訪客',
+                avatar: '👤',
+                role: 'user',
+                showEmptyDays: true
+            });
+            return;
+        }
+
         const docRef = doc(db, 'users', userId, 'config', 'profile');
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
             if (docSnap.exists()) {
-                setUserProfile(docSnap.data() as UserProfile);
+                const data = docSnap.data() as UserProfile;
+                // 確保有 role 欄位，沒有的話預設為 'user'
+                setUserProfile({
+                    ...data,
+                    role: data.role || 'user',
+                    showEmptyDays: data.showEmptyDays ?? true
+                });
             } else {
-                // If it doesn't exist, we don't necessarily need to create it immediately,
-                // the default state is already set.
+                // 如果 profile 不存在，自動創建一個預設的
+                console.log('Creating default profile for new user');
+                const defaultProfile: UserProfile = {
+                    displayName: user?.email?.split('@')[0] || '使用者',
+                    avatar: '👤',
+                    role: 'user'
+                };
+
+                try {
+                    await setDoc(docRef, defaultProfile);
+                    setUserProfile(defaultProfile);
+                } catch (error) {
+                    console.error('Error creating default profile:', error);
+                    // 即使創建失敗，也設定預設值避免白畫面
+                    setUserProfile(defaultProfile);
+                }
             }
         });
 
         return () => unsubscribe();
-    }, [userId]);
+    }, [userId, user?.email]);
+
 
     const updateUserProfile = async (profile: Partial<UserProfile>) => {
         if (!userId) return;
+        if (userId === 'GUEST') {
+            setUserProfile(prev => ({ ...prev, ...profile }));
+            return;
+        }
         const docRef = doc(db, 'users', userId, 'config', 'profile');
         const newProfile = { ...userProfile, ...profile };
         await setDoc(docRef, newProfile, { merge: true });
@@ -122,6 +164,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         userId ? `users/${userId}/subcategories` : '',
         orderByOrder
     );
+
+    // Auto-initialize categories for new users
+    React.useEffect(() => {
+        // 只在以下情況自動初始化：
+        // 1. 有 userId
+        // 2. categories 已載入（不是 undefined）
+        // 3. categories 為空陣列
+        // 4. subcategories 也為空陣列
+        if (!userId) return;
+
+        // 等待資料載入完成（避免在資料還沒載入時就初始化）
+        if (categories.length === 0 && subcategories.length === 0) {
+            // 使用 setTimeout 確保這是在元件完全載入後執行
+            const timeoutId = setTimeout(async () => {
+                try {
+                    console.log('🎉 檢測到新用戶，自動初始化預設分類...');
+                    const { initializeFirestoreData } = await import('../utils/dataMigration');
+                    await initializeFirestoreData(userId);
+                    console.log('✅ 預設分類初始化完成！');
+                } catch (error) {
+                    console.error('❌ 自動初始化失敗:', error);
+                }
+            }, 1000); // 延遲 1 秒確保資料載入檢查完成
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [userId, categories.length, subcategories.length]);
 
     // Dynamic Transaction Filtering State
     // subscribedFilter determines what we FETCH from Firestore
@@ -214,7 +283,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteTransaction = React.useCallback(async (id: string) => {
         if (!user) return;
         try {
-            await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
+            if (user.uid === 'GUEST') {
+                await mockDb.delete(`users/GUEST/transactions`, id);
+                // Trigger context update or rely on hook listener
+            } else {
+                await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
+            }
         } catch (error) {
             console.error('Error deleting transaction:', error);
         }
@@ -222,6 +296,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const batchDeleteTransactions = async (ids: string[]) => {
         if (!user || ids.length === 0) return;
+
+        if (user.uid === 'GUEST') {
+            for (const id of ids) {
+                await mockDb.delete(`users/GUEST/transactions`, id);
+            }
+            return;
+        }
 
         // Firestore batch limit is 500. Let's process in chunks.
         const CHUNK_SIZE = 400;
@@ -242,6 +323,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const batchUpdateTransactions = async (updates: { id: string, data: Partial<Transaction> }[]) => {
         if (!user || updates.length === 0) return;
+
+        if (user.uid === 'GUEST') {
+            for (const update of updates) {
+                await mockDb.update(`users/GUEST/transactions`, update.id, update.data);
+            }
+            return;
+        }
 
         const CHUNK_SIZE = 400;
         for (let i = 0; i < updates.length; i += CHUNK_SIZE) {

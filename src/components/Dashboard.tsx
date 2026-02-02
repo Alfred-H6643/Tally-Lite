@@ -28,11 +28,6 @@ const DateHeader = React.memo(({ dateStr, income, expense, onAddClick }: DateHea
                 <div className="flex items-center gap-3">
                     <span className={`text-sm font-medium flex items-center gap-2 ${isToday(parseISO(dateStr)) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
                         {format(parseISO(dateStr), 'yyyy/MM/dd')}
-                        {isToday(parseISO(dateStr)) && (
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-500">
-                                <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.62.829.799 1.654 1.38 2.274 1.765a11.255 11.255 0 001.056.581c.01.002.016.002.016.002s.11.02.308-.066l.002-.001.006-.003.018-.008zM10 13a4 4 0 100-8 4 4 0 000 8z" clipRule="evenodd" />
-                            </svg>
-                        )}
                     </span>
                     <button
                         onClick={handleAdd}
@@ -40,6 +35,11 @@ const DateHeader = React.memo(({ dateStr, income, expense, onAddClick }: DateHea
                     >
                         <span className="text-sm font-bold leading-none">+</span>
                     </button>
+                    {isToday(parseISO(dateStr)) && (
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-red-500">
+                            <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.62.829.799 1.654 1.38 2.274 1.765a11.255 11.255 0 001.056.581c.01.002.016.002.016.002s.11.02.308-.066l.002-.001.006-.003.018-.008zM10 13a4 4 0 100-8 4 4 0 000 8z" clipRule="evenodd" />
+                        </svg>
+                    )}
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                     {income > 0 && (
@@ -222,6 +222,8 @@ const Dashboard: React.FC = () => {
     // Group by Date for List
     const groupedTransactions = useMemo(() => {
         const groups: { [key: string]: { transactions: Transaction[]; income: number; expense: number } } = {};
+
+        // 1. Fill with actual transactions
         monthlyTransactions.forEach((t) => {
             const dateStr = format(new Date(t.date), 'yyyy-MM-dd');
             if (!groups[dateStr]) groups[dateStr] = { transactions: [], income: 0, expense: 0 };
@@ -234,9 +236,39 @@ const Dashboard: React.FC = () => {
                 groups[dateStr].expense += amountTWD;
             }
         });
+
+        // 2. If "Show Empty Days" is enabled, backfill missing days
+        if (userProfile.showEmptyDays) {
+            const now = new Date();
+            const viewStart = startOfMonth(currentMonth);
+            // End date is effectively min(endOfMonth(currentMonth), today)
+            // But we only want to show empty days if they have passed or are today.
+            // If viewing a previous month, show all days? "Show days without expenses" usually implies "daily log" feel.
+            // Requirement: "date must be <= today"
+
+            const viewEnd = endOfMonth(currentMonth);
+
+            // Iterate from day 1 to end of month
+            let iter = new Date(viewStart);
+            while (iter <= viewEnd) {
+                // Stop if date is in the future relative to "now" (today)
+                // Need to compare dates without time component
+                if (iter > now) break;
+
+                const dateStr = format(iter, 'yyyy-MM-dd');
+                if (!groups[dateStr]) {
+                    // Create empty group
+                    groups[dateStr] = { transactions: [], income: 0, expense: 0 };
+                }
+
+                // Move to next day
+                iter.setDate(iter.getDate() + 1);
+            }
+        }
+
         // Sort dates descending
         return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
-    }, [monthlyTransactions]);
+    }, [monthlyTransactions, userProfile.showEmptyDays, currentMonth]);
 
     const handleEdit = React.useCallback((t: Transaction) => {
         openModal(t);

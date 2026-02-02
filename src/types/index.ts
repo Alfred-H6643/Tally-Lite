@@ -75,6 +75,7 @@ export interface Budget {
     categoryId?: string;              // 分類 ID（如果是分類預算）
     subcategoryId?: string;           // 子分類 ID（如果是子分類預算）
     amount: number;                   // 年度預算金額
+    monthlyAmounts?: number[];        // 每月預算 (12 個月)
     createdAt: Date;
     updatedAt: Date;
 }

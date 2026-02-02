@@ -1,4 +1,5 @@
 import React from 'react';
+// Deployment trigger: 2026-02-02
 import { BrowserRouter as Router, useRoutes, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Dashboard from './components/Dashboard';

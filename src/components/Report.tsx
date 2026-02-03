@@ -206,6 +206,7 @@ interface SubcategoryReportItemProps {
     subTransactions: any[];
     projectTags: any[];
     onEditClick: (t: any) => void;
+    ytdBalance: number | null;
 }
 
 const SubcategoryReportItem = React.memo(({
@@ -217,7 +218,8 @@ const SubcategoryReportItem = React.memo(({
     transactionType,
     subTransactions,
     projectTags,
-    onEditClick
+    onEditClick,
+    ytdBalance
 }: SubcategoryReportItemProps) => {
     const subRemaining = subBudget !== null ? subBudget - total : null;
     const usagePercent = subBudget ? Math.round((total / subBudget) * 100) : 0;
@@ -235,22 +237,28 @@ const SubcategoryReportItem = React.memo(({
                 onClick={handleToggle}
             >
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">
-                        {isExpanded ? '▼' : '▶'}
-                    </span>
+                    {/* Hide arrow in budget mode */}
+                    {transactionType !== 'budget' && (
+                        <span className="text-xs text-gray-400">
+                            {isExpanded ? '▼' : '▶'}
+                        </span>
+                    )}
                     <div>
                         <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
                         {subBudget !== null && (
                             <div className="text-xs text-gray-400 mt-0.5">
                                 預算: ${subBudget.toLocaleString()}
-                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
-                                    ? 'bg-red-100 text-red-600'
-                                    : usagePercent === 100
-                                        ? 'bg-green-100 text-green-600'
-                                        : 'bg-gray-100 text-gray-500'
-                                    }`}>
-                                    {usagePercent}%
-                                </span>
+                                {/* Hide 100% in budget mode */}
+                                {transactionType !== 'budget' && (
+                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                        ? 'bg-red-100 text-red-600'
+                                        : usagePercent === 100
+                                            ? 'bg-green-100 text-green-600'
+                                            : 'bg-gray-100 text-gray-500'
+                                        }`}>
+                                        {usagePercent}%
+                                    </span>
+                                )}
                             </div>
                         )}
                     </div>
@@ -260,6 +268,12 @@ const SubcategoryReportItem = React.memo(({
                     {subRemaining !== null && transactionType !== 'budget' && (
                         <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                             {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
+                        </div>
+                    )}
+                    {/* YTD display for budget mode */}
+                    {ytdBalance !== null && transactionType === 'budget' && (
+                        <div className={`text-xs ${ytdBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {ytdBalance >= 0 ? 'YTD 結餘' : 'YTD 超支'} ${Math.abs(ytdBalance).toLocaleString()}
                         </div>
                     )}
                 </div>
@@ -301,6 +315,7 @@ interface CategoryReportItemProps {
     toggleSubcategory: (id: string) => void;
     projectTags: any[];
     onEditClick: (t?: any, date?: Date) => void;
+    ytdBalance: number | null;
 }
 
 const CategoryReportItem = React.memo(({
@@ -313,7 +328,8 @@ const CategoryReportItem = React.memo(({
     expandedSubcategories,
     toggleSubcategory,
     projectTags,
-    onEditClick
+    onEditClick,
+    ytdBalance
 }: CategoryReportItemProps) => {
     const budget = item.budget;
     const remaining = budget !== null ? budget - item.value : null;
@@ -347,14 +363,17 @@ const CategoryReportItem = React.memo(({
                             {budget !== null && (
                                 <div className="text-xs text-gray-500">
                                     預算: ${budget.toLocaleString()}
-                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
-                                        ? 'bg-red-100 text-red-600'
-                                        : usagePercent === 100
-                                            ? 'bg-green-100 text-green-600'
-                                            : 'bg-gray-100 text-gray-500'
-                                        }`}>
-                                        {usagePercent}%
-                                    </span>
+                                    {/* Hide 100% label in budget mode */}
+                                    {transactionType !== 'budget' && (
+                                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                            ? 'bg-red-100 text-red-600'
+                                            : usagePercent === 100
+                                                ? 'bg-green-100 text-green-600'
+                                                : 'bg-gray-100 text-gray-500'
+                                            }`}>
+                                            {usagePercent}%
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -364,6 +383,12 @@ const CategoryReportItem = React.memo(({
                         {remaining !== null && transactionType !== 'budget' && (
                             <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 {remaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(remaining).toLocaleString()}
+                            </div>
+                        )}
+                        {/* YTD display for budget mode */}
+                        {ytdBalance !== null && transactionType === 'budget' && (
+                            <div className={`text-xs font-medium ${ytdBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {ytdBalance >= 0 ? 'YTD 結餘' : 'YTD 超支'} ${Math.abs(ytdBalance).toLocaleString()}
                             </div>
                         )}
                     </div>
@@ -400,6 +425,7 @@ const CategoryReportItem = React.memo(({
                                     transactionType={transactionType}
                                     subTransactions={subTransactions}
                                     projectTags={projectTags}
+                                    ytdBalance={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.ytdBalance || null}
                                     onEditClick={onEditClick}
                                 />
                             ))}
@@ -478,14 +504,17 @@ const Report: React.FC = () => {
     }, [viewMode, currentMonth, appliedCustomRange]);
 
     // Sync context filter with report range
+    // Optimization: Only fetch from year start when in Budget + Month mode for YTD calculation
     React.useEffect(() => {
         if (dateRange) {
+            const needsYearData = transactionType === 'budget' && viewMode === 'month';
+            const fetchStart = needsYearData ? startOfYear(dateRange.start) : dateRange.start;
             setTransactionFilter({
-                start: dateRange.start,
+                start: fetchStart,
                 end: dateRange.end
             });
         }
-    }, [dateRange, setTransactionFilter]);
+    }, [dateRange, setTransactionFilter, viewMode, transactionType]);
 
     const handlePrev = () => {
         if (viewMode === 'year') {
@@ -569,6 +598,50 @@ const Report: React.FC = () => {
         });
     }, [transactions, dateRange, transactionType, appliedProjectTags]);
 
+    const getYTDBalance = React.useCallback((categoryId?: string, subcategoryId?: string) => {
+        if (viewMode !== 'month' || transactionType !== 'budget') return null;
+
+        const ytdStart = startOfYear(currentMonth);
+        const ytdEnd = dateRange.end;
+
+        // 1. Calculate Accumulated Budget
+        const year = currentMonth.getFullYear();
+        const fullYearBudget = subcategoryId
+            ? getBudgetForSubcategory(subcategoryId, year)
+            : getBudgetForCategory(categoryId!, year);
+
+        if (fullYearBudget === 0) return null;
+
+        // Budget calculation:
+        // - For yearly budgets: divide by 12 to get monthly average, then multiply by months elapsed
+        // - For monthly budgets: getBudgetForCategory returns the yearly sum, same calculation applies
+        // This gives us the accumulated budget from January to current month (inclusive)
+        const monthsCount = currentMonth.getMonth() + 1;
+        const accumulatedBudget = Math.round((fullYearBudget / 12) * monthsCount);
+
+        // 2. Calculate Accumulated Expenses (always use 'expense' type for YTD calculation)
+        const ytdTransactions = transactions.filter(t => {
+            const tDate = new Date(t.date);
+            const isInRange = isWithinInterval(tDate, { start: ytdStart, end: ytdEnd });
+            const isCorrectType = t.type === 'expense'; // Always calculate against expenses
+            const matchesCategory = categoryId ? t.categoryId === categoryId : true;
+            const matchesSubcategory = subcategoryId ? t.subcategoryId === subcategoryId : true;
+
+            // Project tag filtering behavior:
+            // YTD follows the current project tag filter selection (方案B)
+            // This means YTD reflects the accumulated balance for ONLY the selected project tags
+            // If no tags selected, YTD reflects all transactions in this category
+            const matchesProjectTags = appliedProjectTags.length > 0
+                ? t.tags && t.tags.some(tag => appliedProjectTags.includes(tag))
+                : true;
+
+            return isCorrectType && isInRange && matchesCategory && matchesSubcategory && matchesProjectTags;
+        });
+
+        const totalSpent = ytdTransactions.reduce((sum, t) => sum + convertAmountToTWD(t.amount, t.currency || 'TWD'), 0);
+        return accumulatedBudget - totalSpent;
+    }, [viewMode, transactionType, currentMonth, dateRange.end, transactions, getBudgetForCategory, getBudgetForSubcategory, appliedProjectTags]);
+
     const chartData = useMemo(() => {
         if (transactionType === 'budget') {
             // Handle Budget View
@@ -582,7 +655,8 @@ const Report: React.FC = () => {
                         value: budget,
                         color: category.color,
                         icon: category.icon,
-                        budget: budget // In budget mode, value IS the budget
+                        budget: budget, // In budget mode, value IS the budget
+                        ytdBalance: getYTDBalance(category.id) // Calculate YTD for budget view
                     });
                 }
             });
@@ -598,7 +672,8 @@ const Report: React.FC = () => {
             value: number;
             color: string;
             icon: string;
-            budget: number | null
+            budget: number | null;
+            ytdBalance: number | null;
         }[] = [];
 
         relevantTransactions.forEach((t) => {
@@ -616,13 +691,14 @@ const Report: React.FC = () => {
                     value: convertAmountToTWD(t.amount, t.currency || 'TWD'),
                     color: category.color,
                     icon: category.icon,
-                    budget: getCategoryBudget(category.id)
+                    budget: getCategoryBudget(category.id),
+                    ytdBalance: getYTDBalance(category.id)
                 });
             }
         });
 
         return data.sort((a, b) => b.value - a.value);
-    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions]);
+    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions, getYTDBalance]);
 
     // Calculate total expenses for percentage
     const totalExpenses = useMemo(() => {
@@ -648,7 +724,12 @@ const Report: React.FC = () => {
                     })
                     .filter(item => item.total > 0)
                     .sort((a, b) => b.total - a.total);
-                map.set(categoryId, subs);
+
+                // Add YTD balance uniformly with expense/income mode approach
+                map.set(categoryId, subs.map(item => ({
+                    ...item,
+                    ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null
+                })));
                 return;
             }
 
@@ -682,10 +763,15 @@ const Report: React.FC = () => {
                 }
             });
 
-            map.set(categoryId, Array.from(subcategoryMapData.values()).sort((a: any, b: any) => b.total - a.total));
+            map.set(categoryId, Array.from(subcategoryMapData.values())
+                .map(item => ({
+                    ...item,
+                    ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null
+                }))
+                .sort((a: any, b: any) => b.total - a.total));
         });
         return map;
-    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget]);
+    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget, viewMode, getYTDBalance]);
 
     const toggleCategory = React.useCallback((categoryId: string) => {
         setExpandedCategories(prev => {
@@ -989,6 +1075,7 @@ const Report: React.FC = () => {
                                 getSubcategoryBudget={getSubcategoryBudget}
                                 expandedSubcategories={expandedSubcategories}
                                 toggleSubcategory={toggleSubcategory}
+                                ytdBalance={item.ytdBalance}
                                 projectTags={projectTags}
                                 onEditClick={openModal}
                             />

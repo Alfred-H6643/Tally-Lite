@@ -185,12 +185,10 @@ const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClic
                 )}
             </div>
             <div className="text-right ml-2">
-                <div className="font-medium text-gray-700">
-                    {transaction.currency || 'TWD'} ${transaction.amount.toLocaleString()}
-                </div>
+                {transaction.currency && transaction.currency !== 'TWD' ? `${transaction.currency} ` : ''}${transaction.amount.toLocaleString()}
                 {transaction.currency && transaction.currency !== 'TWD' && (
                     <div className="text-[10px] text-gray-400">
-                        ≈ TWD ${convertAmountToTWD(transaction.amount, transaction.currency).toLocaleString()}
+                        ≈ ${convertAmountToTWD(transaction.amount, transaction.currency).toLocaleString()}
                     </div>
                 )}
             </div>
@@ -244,7 +242,7 @@ const SubcategoryReportItem = React.memo(({
                         <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
                         {subBudget !== null && (
                             <div className="text-xs text-gray-400 mt-0.5">
-                                預算: TWD ${subBudget.toLocaleString()}
+                                預算: ${subBudget.toLocaleString()}
                                 <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
                                     ? 'bg-red-100 text-red-600'
                                     : usagePercent === 100
@@ -258,10 +256,10 @@ const SubcategoryReportItem = React.memo(({
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-700">TWD ${total.toLocaleString()}</div>
+                    <div className="text-sm font-semibold text-gray-700">${total.toLocaleString()}</div>
                     {subRemaining !== null && transactionType !== 'budget' && (
                         <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {subRemaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(subRemaining).toLocaleString()}
+                            {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
                         </div>
                     )}
                 </div>
@@ -348,7 +346,7 @@ const CategoryReportItem = React.memo(({
                             </div>
                             {budget !== null && (
                                 <div className="text-xs text-gray-500">
-                                    預算: TWD ${budget.toLocaleString()}
+                                    預算: ${budget.toLocaleString()}
                                     <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
                                         ? 'bg-red-100 text-red-600'
                                         : usagePercent === 100
@@ -362,10 +360,10 @@ const CategoryReportItem = React.memo(({
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="font-bold text-gray-800">TWD ${item.value.toLocaleString()}</div>
+                        <div className="font-bold text-gray-800">${item.value.toLocaleString()}</div>
                         {remaining !== null && transactionType !== 'budget' && (
                             <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {remaining >= 0 ? '剩餘: ' : '超支: '}TWD ${Math.abs(remaining).toLocaleString()}
+                                {remaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(remaining).toLocaleString()}
                             </div>
                         )}
                     </div>
@@ -923,7 +921,7 @@ const Report: React.FC = () => {
                         <h2 className="text-lg font-bold mb-4 text-gray-800 capitalize flex flex-wrap items-baseline justify-between gap-x-2">
                             <span>Overview</span>
                             <span className={`text-sm font-normal whitespace-nowrap ${transactionType === 'income' ? 'text-green-500' : transactionType === 'budget' ? 'text-blue-500' : 'text-[#E3B873]'}`}>
-                                (Total: TWD ${totalExpenses.toLocaleString()})
+                                (Total: ${totalExpenses.toLocaleString()})
                             </span>
                         </h2>
                         <div style={{ height: `${chartHeight}px`, width: '100%' }} className="focus:outline-none">
@@ -976,7 +974,10 @@ const Report: React.FC = () => {
 
                     {/* Detailed List Section */}
                     <div className="space-y-3">
-                        <h3 className="font-bold text-gray-700 px-1">Details</h3>
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="font-bold text-gray-700">Details</h3>
+                            <span className="text-xs text-gray-500 font-medium">幣別：TWD</span>
+                        </div>
                         {chartData.map((item) => (
                             <CategoryReportItem
                                 key={item.categoryId}

@@ -141,11 +141,12 @@ const BudgetSettings: React.FC = () => {
             return;
         }
 
+
         if (modalMode === 'edit' && editingBudget) {
             updateBudget({
                 ...editingBudget,
                 amount,
-                monthlyAmounts: finalMonthlyAmounts,
+                ...(finalMonthlyAmounts ? { monthlyAmounts: finalMonthlyAmounts } : {}),
                 updatedAt: new Date()
             });
         } else {
@@ -153,9 +154,9 @@ const BudgetSettings: React.FC = () => {
                 id: uuidv4(),
                 year: selectedYear,
                 categoryId: formCategoryId,
-                subcategoryId: formSubcategoryId || undefined,
+                ...(formSubcategoryId ? { subcategoryId: formSubcategoryId } : {}),
                 amount,
-                monthlyAmounts: finalMonthlyAmounts,
+                ...(finalMonthlyAmounts ? { monthlyAmounts: finalMonthlyAmounts } : {}),
                 createdAt: new Date(),
                 updatedAt: new Date()
             });

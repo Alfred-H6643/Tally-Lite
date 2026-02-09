@@ -350,30 +350,35 @@ const Settings: React.FC = () => {
                                 <p className="text-xs text-gray-500">按日期區間移除交易記錄</p>
                             </div>
                         </button>
+
                     </div>
                 </div>
 
-                {message && (
-                    <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-xl text-sm text-center">
-                        {message}
-                    </div>
-                )}
+                {
+                    message && (
+                        <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-xl text-sm text-center">
+                            {message}
+                        </div>
+                    )
+                }
 
-                {user && (
-                    <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400">
-                        <span>Logged in as: {user.email}</span>
-                        {userProfile.role === 'admin' && (
-                            <button
-                                onClick={() => navigate('/settings/admin')}
-                                className="opacity-40 hover:opacity-100 transition-opacity"
-                                title="管理員設定"
-                            >
-                                ⚙️
-                            </button>
-                        )}
-                    </div>
-                )}
-            </div>
+                {
+                    user && (
+                        <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400">
+                            <span>Logged in as: {user.email}</span>
+                            {userProfile.role === 'admin' && (
+                                <button
+                                    onClick={() => navigate('/settings/admin')}
+                                    className="opacity-40 hover:opacity-100 transition-opacity"
+                                    title="管理員設定"
+                                >
+                                    ⚙️
+                                </button>
+                            )}
+                        </div>
+                    )
+                }
+            </div >
 
             <ExportModal
                 isOpen={isExportModalOpen}
@@ -384,7 +389,7 @@ const Settings: React.FC = () => {
                 isOpen={isBatchDeleteModalOpen}
                 onClose={() => setIsBatchDeleteModalOpen(false)}
             />
-        </motion.div>
+        </motion.div >
     );
 };
 

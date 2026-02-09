@@ -9,7 +9,7 @@ import ConfirmDialog from './ConfirmDialog';
 const AdminSettings: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useFirebaseAuth();
-    const { exportSettings, updateExportSettings, transactions, subcategories, categories, updateTransaction } = useAppContext();
+    const { exportSettings, updateExportSettings, transactions, subcategories, categories, updateTransaction, budgets, deleteBudget } = useAppContext();
     const [formData, setFormData] = useState(exportSettings);
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
@@ -139,6 +139,116 @@ const AdminSettings: React.FC = () => {
         setIsConfirmOpen(true);
     };
 
+    const handleClearGhostBudgets = async () => {
+        setConfirmConfig({
+            title: '清除幽靈預算',
+            message: '這將刪除所有指向無效子分類的預算記錄。刪除後，您的分類總預算可能會減少，您需要重新設定正確的子分類預算。確定要執行嗎？',
+            onConfirm: async () => {
+                setLoading(true);
+                setMessage('正在掃描幽靈預算...');
+
+                try {
+                    const ghostBudgets = budgets.filter(b =>
+                        b.subcategoryId &&
+                        !subcategories.some(s => s.id === b.subcategoryId)
+                    );
+
+                    if (ghostBudgets.length === 0) {
+                        setMessage('✅ 沒有發現幽靈預算！');
+                        setLoading(false);
+                        return;
+                    }
+
+                    setMessage(`發現 ${ghostBudgets.length} 筆幽靈預算，正在清除...`);
+
+                    let deletedCount = 0;
+                    for (const b of ghostBudgets) {
+                        await deleteBudget(b.id);
+                        deletedCount++;
+                    }
+
+                    setMessage(`✅ 清除完成！共刪除 ${deletedCount} 筆幽靈預算。`);
+                } catch (error: any) {
+                    setMessage(`❌ 錯誤: ${error.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+        setIsConfirmOpen(true);
+    };
+
+    const handleDebugBudgets = async () => {
+        setLoading(true);
+        setMessage('正在分析資料...');
+        try {
+            // 1. Check for Duplicate Subcategories
+            const subCounts: { [key: string]: number } = {};
+            const duplicates: string[] = [];
+
+            subcategories.forEach(s => {
+                const key = `${s.parentId}-${s.name}`;
+                if (subCounts[key]) {
+                    duplicates.push(`${s.name} (${s.parentId})`);
+                }
+                subCounts[key] = (subCounts[key] || 0) + 1;
+            });
+
+            // 2. Inspect 'Food' category specifically
+            const foods = categories.filter(c => c.name === '食物' || c.name === 'Food');
+            let debugInfo = '';
+
+            if (foods.length === 0) {
+                debugInfo += `⚠️ No 'Food' or '食物' category found.\n`;
+            } else if (foods.length > 1) {
+                debugInfo += `⚠️ Found ${foods.length} 'Food' categories!\n`;
+            }
+
+            foods.forEach(foodCat => {
+                const foodSubs = subcategories.filter(s => s.parentId === foodCat.id);
+                debugInfo += `\n[Category] ${foodCat.name} (ID: ${foodCat.id})\n`;
+                debugInfo += `Subcategories:\n`;
+                foodSubs.forEach(s => {
+                    debugInfo += `- ${s.name} (ID: ${s.id}, Order: ${s.order})\n`;
+                    // Check budgets for this sub
+                    const subsBudgets = budgets.filter(b => b.subcategoryId === s.id);
+                    if (subsBudgets.length > 0) {
+                        subsBudgets.forEach(b => {
+                            debugInfo += `  -> Budget: ${b.amount} (Year: ${b.year}, ID: ${b.id})\n`;
+                        });
+                    } else {
+                        debugInfo += `  -> No Budget Set\n`;
+                    }
+                });
+
+                // Check for orphaned budgets under Food
+                const orphanedBudgets = budgets.filter(b =>
+                    b.categoryId === foodCat.id &&
+                    b.subcategoryId &&
+                    !subcategories.some(s => s.id === b.subcategoryId)
+                );
+                if (orphanedBudgets.length > 0) {
+                    debugInfo += `\n⚠️ Orphaned Budgets for Food:\n`;
+                    orphanedBudgets.forEach(b => {
+                        debugInfo += `- Amount: ${b.amount}, SubID: ${b.subcategoryId} (Not found in subs)\n`;
+                    });
+                }
+            });
+
+            if (duplicates.length > 0) {
+                alert(`Found Duplicate Subcategories:\n${duplicates.join('\n')}\n\nDebug Info:\n${debugInfo}`);
+            } else {
+                alert(`No duplicates found.\n\nDebug Info:\n${debugInfo}`);
+            }
+            setMessage('✅ 分析完成，請查看跳出視窗');
+        } catch (error: any) {
+            console.error(error);
+            setMessage(`❌ Error: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSetRole = async () => {
         const userIdInput = (document.getElementById('roleUserId') as HTMLInputElement)?.value.trim();
         const roleSelect = (document.getElementById('roleType') as HTMLSelectElement)?.value as 'admin' | 'user';
@@ -158,17 +268,7 @@ const AdminSettings: React.FC = () => {
         setIsConfirmOpen(true);
     };
 
-    const handleQuickSetRole = async (userId: string, role: 'admin' | 'user') => {
-        const displayName = userId === 'ftqQxIbyX6WRhLDhywYmwJ0yKw12' ? '正式帳號' : '開發帳號';
-        setConfirmConfig({
-            title: '快速設定角色',
-            message: `確定要將${displayName}的角色設定為「${role === 'admin' ? '管理員' : '一般用戶'}」嗎？`,
-            onConfirm: async () => {
-                await executeSetRole(userId, role);
-            }
-        });
-        setIsConfirmOpen(true);
-    };
+
 
     const executeSetRole = async (userId: string, role: 'admin' | 'user') => {
         setLoading(true);
@@ -217,7 +317,7 @@ const AdminSettings: React.FC = () => {
                 <h1 className="text-lg font-bold flex-1 text-center pr-8">系統設定 (Admin)</h1>
             </div>
 
-            <div className="p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {/* Global Message Display - Moved to top */}
                 {message && (
                     <div className={`text-center text-sm font-medium py-3 rounded-xl ${message.includes('❌') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
@@ -304,6 +404,34 @@ const AdminSettings: React.FC = () => {
                                 <p className="text-xs text-gray-500">將無效子分類的交易歸到「未分類」</p>
                             </div>
                         </button>
+
+                        <button
+                            onClick={handleClearGhostBudgets}
+                            disabled={loading}
+                            className="w-full bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-gray-100 transition-colors text-left group disabled:opacity-50"
+                        >
+                            <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                                👻
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-medium text-gray-900">清除幽靈預算</h3>
+                                <p className="text-xs text-gray-500">刪除指向無效子分類的預算記錄</p>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={handleDebugBudgets}
+                            disabled={loading}
+                            className="w-full bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-gray-100 transition-colors text-left group disabled:opacity-50"
+                        >
+                            <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                                🔍
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-medium text-gray-900">診斷預算資料</h3>
+                                <p className="text-xs text-gray-500">顯示詳細的分類與預算關聯資訊</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
 
@@ -345,25 +473,7 @@ const AdminSettings: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-600 font-medium mb-2">快速設定:</p>
-                        <div className="space-y-2">
-                            <button
-                                onClick={() => handleQuickSetRole('ftqQxIbyX6WRhLDhywYmwJ0yKw12', 'user')}
-                                disabled={loading}
-                                className="w-full text-left px-3 py-2 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors disabled:opacity-50"
-                            >
-                                正式帳號 (alfred.mc.hsu@gmail.com) → 一般用戶
-                            </button>
-                            <button
-                                onClick={() => handleQuickSetRole('9HqyWH9f0dSwKAR5yIBUBfx4GFM2', 'admin')}
-                                disabled={loading}
-                                className="w-full text-left px-3 py-2 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors disabled:opacity-50"
-                            >
-                                開發帳號 → 管理員
-                            </button>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 

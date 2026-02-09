@@ -147,6 +147,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const {
         data: categories,
+        loading: categoriesLoading,
         add: addCategoryFn,
         update: updateCategoryFn,
         remove: deleteCategoryFn
@@ -157,6 +158,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const {
         data: subcategories,
+        loading: subcategoriesLoading,
         add: addSubcategoryFn,
         update: updateSubcategoryFn,
         remove: deleteSubcategoryFn
@@ -169,28 +171,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     React.useEffect(() => {
         // 只在以下情況自動初始化：
         // 1. 有 userId
-        // 2. categories 已載入（不是 undefined）
-        // 3. categories 為空陣列
-        // 4. subcategories 也為空陣列
+        // 2. categories 已載入完成（loading 為 false）
+        // 3. subcategories 已載入完成（loading 為 false）
+        // 4. categories 為空陣列
+        // 5. subcategories 也為空陣列
         if (!userId) return;
 
-        // 等待資料載入完成（避免在資料還沒載入時就初始化）
-        if (categories.length === 0 && subcategories.length === 0) {
-            // 使用 setTimeout 確保這是在元件完全載入後執行
-            const timeoutId = setTimeout(async () => {
-                try {
-                    console.log('🎉 檢測到新用戶，自動初始化預設分類...');
-                    const { initializeFirestoreData } = await import('../utils/dataMigration');
-                    await initializeFirestoreData(userId);
-                    console.log('✅ 預設分類初始化完成！');
-                } catch (error) {
-                    console.error('❌ 自動初始化失敗:', error);
-                }
-            }, 1000); // 延遲 1 秒確保資料載入檢查完成
-
-            return () => clearTimeout(timeoutId);
+        // 等待資料載入完成
+        if (!categoriesLoading && !subcategoriesLoading) {
+            if (categories.length === 0 && subcategories.length === 0) {
+                const initialize = async () => {
+                    try {
+                        console.log('🎉 檢測到新用戶，自動初始化預設分類...');
+                        const { initializeFirestoreData } = await import('../utils/dataMigration');
+                        await initializeFirestoreData(userId);
+                        console.log('✅ 預設分類初始化完成！');
+                        // Force a reload to refresh the context with new data? 
+                        // Actually useFirestoreCollection should auto-update since it listens to snapshots.
+                    } catch (error) {
+                        console.error('❌ 自動初始化失敗:', error);
+                    }
+                };
+                initialize();
+            }
         }
-    }, [userId, categories.length, subcategories.length]);
+    }, [userId, categories.length, subcategories.length, categoriesLoading, subcategoriesLoading]);
 
     // Dynamic Transaction Filtering State
     // subscribedFilter determines what we FETCH from Firestore
@@ -352,14 +357,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addCategoryFn(data);
     };
     const updateCategory = (category: Category) => updateCategoryFn(category.id, category);
-    const deleteCategory = (id: string) => deleteCategoryFn(id);
+    const deleteCategory = async (id: string) => {
+        // Cascading delete: Remove associated budgets
+        const relatedBudgets = budgets.filter(b => b.categoryId === id);
+        for (const budget of relatedBudgets) {
+            await deleteBudgetFn(budget.id);
+        }
+        deleteCategoryFn(id);
+    };
 
     const addSubcategory = (subcategory: Subcategory) => {
         const { id, ...data } = subcategory;
         addSubcategoryFn(data);
     };
     const updateSubcategory = (subcategory: Subcategory) => updateSubcategoryFn(subcategory.id, subcategory);
-    const deleteSubcategory = (id: string) => deleteSubcategoryFn(id);
+    const deleteSubcategory = async (id: string) => {
+        // Cascading delete: Remove associated budgets
+        const relatedBudgets = budgets.filter(b => b.subcategoryId === id);
+        for (const budget of relatedBudgets) {
+            await deleteBudgetFn(budget.id);
+        }
+        deleteSubcategoryFn(id);
+    };
 
     const addProjectTag = (tag: ProjectTag) => {
         const { id, ...data } = tag;

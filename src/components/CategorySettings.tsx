@@ -186,7 +186,7 @@ const CategorySettings: React.FC = () => {
                 color: formColor,
                 type: activeTab,
                 isHidden: false,
-                order: categories.length,
+                order: categories.length > 0 ? Math.max(...categories.map(c => c.order)) + 1 : 0,
             });
         } else if (modalMode === 'edit_category' && editingItem) {
             updateCategory({
@@ -215,7 +215,10 @@ const CategorySettings: React.FC = () => {
                 parentId: parentId,
                 name: formName,
                 isHidden: false,
-                order: subcategories.filter(s => s.parentId === parentId).length,
+                order: (() => {
+                    const siblings = subcategories.filter(s => s.parentId === parentId);
+                    return siblings.length > 0 ? Math.max(...siblings.map(s => s.order)) + 1 : 0;
+                })(),
                 yearlyBudget: 0
             });
         } else if (modalMode === 'reorder_subcategories' && editingItem) {
@@ -251,7 +254,7 @@ const CategorySettings: React.FC = () => {
             title: '刪除子分類',
             message: `確定要刪除「${sub.name}」嗎？相關交易將移至「未分類」。`,
             onConfirm: () => {
-                let uncategorized = subcategories.find(s => s.parentId === sub.parentId && s.name === '未分類');
+                let uncategorized = subcategories.find(s => s.parentId === sub.parentId && (s.name === '未分類' || s.name === 'Uncategorized'));
 
                 if (!uncategorized) {
                     const newUncategorized: Subcategory = {
@@ -288,13 +291,13 @@ const CategorySettings: React.FC = () => {
         if (!editingItem || !targetCategoryId) return;
         const cat = editingItem as Category;
 
-        let targetUncategorized = subcategories.find(s => s.parentId === targetCategoryId && s.name === 'Uncategorized');
+        let targetUncategorized = subcategories.find(s => s.parentId === targetCategoryId && (s.name === '未分類' || s.name === 'Uncategorized'));
 
         if (!targetUncategorized) {
             const newUncategorized: Subcategory = {
                 id: uuidv4(),
                 parentId: targetCategoryId,
-                name: 'Uncategorized',
+                name: '未分類',
                 yearlyBudget: 0,
                 isHidden: false,
                 order: 999

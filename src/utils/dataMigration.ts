@@ -1,5 +1,5 @@
 import { db } from '../services/firebase';
-import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, serverTimestamp, writeBatch, getDocs, collection } from 'firebase/firestore';
 import { initializeDefaultData } from './defaultCategories';
 import type { Category, Subcategory, Transaction, Budget, ProjectTag } from '../types';
 
@@ -10,6 +10,16 @@ import type { Category, Subcategory, Transaction, Budget, ProjectTag } from '../
 export const initializeFirestoreData = async (userId: string) => {
     try {
         console.log('Starting data initialization for user:', userId);
+
+        // Safety Check: Ensure no categories exist before initializing
+        const categoriesRef = collection(db, `users/${userId}/categories`);
+        const snapshot = await getDocs(categoriesRef);
+
+        if (!snapshot.empty) {
+            console.warn('Data initialization skipped: Categories already exist.');
+            return { success: false, message: 'Categories already exist' };
+        }
+
         const { categories, allSubcategories } = initializeDefaultData();
         const batch = writeBatch(db);
 

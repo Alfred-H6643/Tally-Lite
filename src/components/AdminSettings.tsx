@@ -33,15 +33,31 @@ const AdminSettings: React.FC = () => {
     const handleInitialize = async () => {
         if (!user) return;
 
+        // 檢查是否已有分類資料
+        const hasCategories = categories.length > 0;
+        const hasSubcategories = subcategories.length > 0;
+
+        if (hasCategories || hasSubcategories) {
+            setMessage(`⚠️ 目前已有 ${categories.length} 個分類和 ${subcategories.length} 個子分類，無需初始化`);
+            return;
+        }
+
         setConfirmConfig({
-            title: '初始化預設資料',
-            message: '確定要寫入預設資料嗎？這不會刪除現有資料。',
+            title: '確認初始化預設分類',
+            message: `此操作將建立預設的費用和收入分類，包含：
+• 10 個費用分類（食物、交通、居家、健康、消費、社交、娛樂、運動、旅行、學習）
+• 1 個收入分類
+• 各分類下的子分類（含「未分類」）
+
+目前資料庫中沒有分類資料，建議執行初始化。
+
+確定要繼續嗎？`,
             onConfirm: async () => {
                 setLoading(true);
                 setMessage('正在初始化資料...');
                 try {
                     await initializeFirestoreData(user.uid);
-                    setMessage('✅ 初始化成功！');
+                    setMessage('✅ 初始化成功！已建立預設分類。');
                 } catch (error: any) {
                     setMessage(`❌ 錯誤: ${error.message}`);
                 } finally {
@@ -365,15 +381,19 @@ const AdminSettings: React.FC = () => {
                     <div className="space-y-4">
                         <button
                             onClick={handleInitialize}
-                            disabled={loading}
+                            disabled={loading || categories.length > 0}
                             className="w-full bg-gray-50 rounded-xl p-4 flex items-center gap-4 hover:bg-gray-100 transition-colors text-left group disabled:opacity-50"
                         >
                             <div className="w-10 h-10 bg-yellow-50 rounded-full flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
                                 ⚡️
                             </div>
                             <div className="flex-1">
-                                <h3 className="font-medium text-gray-900">初始化預設資料</h3>
-                                <p className="text-xs text-gray-500">寫入系統預設分類到 Firebase</p>
+                                <h3 className="font-medium text-gray-900">初始化預設分類</h3>
+                                <p className="text-xs text-gray-500">
+                                    {categories.length > 0
+                                        ? `已有 ${categories.length} 個分類，無需初始化`
+                                        : '為新帳號建立預設的費用和收入分類'}
+                                </p>
                             </div>
                         </button>
 

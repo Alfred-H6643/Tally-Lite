@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { mockDb } from '../services/mockDatabase';
+// mockDb 不再需要手動呼叫：它在首次建立時會自動載入測試資料
 
 const GUEST_USER: User = {
     uid: 'GUEST',
@@ -49,8 +49,9 @@ export const useFirebaseAuth = () => {
     const loginAsGuest = () => {
         sessionStorage.setItem('isGuest', 'true');
         setIsGuest(true);
-        mockDb.reset(); // Reset mock DB on new guest login
-        // Force reload to sync state across components (Quick Fix for "No reaction")
+        // 不再重置資料：保留訪客在 Demo 中的操作
+        // mockDb 在首次建立時會自動載入測試資料（constructor 中呼叫 reset()）
+        // 之後訪客的所有操作都會保留，直到清除瀏覽器快取或重新載入頁面
         window.location.reload();
     };
 

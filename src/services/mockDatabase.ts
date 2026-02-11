@@ -65,10 +65,10 @@ class MockDatabase {
 
     private generateFakeBudgets(subcategories: Subcategory[], transactions: Transaction[]): Budget[] {
         const budgets: Budget[] = [];
-        const YEAR = 2026;
         const now = new Date();
+        const YEAR = now.getFullYear(); // 當前年份
 
-        // Helper to calculate estimated annual expense for 2026 based on mock data (Jan-Jun)
+        // Helper to calculate estimated annual expense based on YTD data
         const getEstimatedAnnualExpense = (subcategoryId: string) => {
             const subTransactions = transactions.filter(t =>
                 t.subcategoryId === subcategoryId &&
@@ -76,11 +76,16 @@ class MockDatabase {
                 t.type === 'expense'
             );
             const total = subTransactions.reduce((sum, t) => sum + t.amount, 0);
-            // Mock data is ~6 months, so annualize it (x2)
-            return total * 2;
+
+            // 根據已過月份估算全年費用
+            const monthsElapsed = now.getMonth() + 1; // 1-12
+            if (monthsElapsed === 0) return 0;
+
+            // 年化計算：(目前累積 / 已過月份) * 12
+            return (total / monthsElapsed) * 12;
         };
 
-        // Generate Budget records for Subcategories
+        // Generate Budget records for Subcategories (只產生當年度)
         subcategories.forEach(sub => {
             // Calculate "Smart Budget" base
             const estimatedAnnual = getEstimatedAnnualExpense(sub.id);
@@ -89,8 +94,6 @@ class MockDatabase {
             if (estimatedAnnual > 0) {
                 // Apply variance: 0.8x to 1.25x of estimated usage
                 // This creates a mix of "Under Budget" (if variance > 1.0) and "Over Budget" (if variance < 1.0) scenarios
-                // Wait, if Budget = 0.8 * Expense, then Expense > Budget -> Over Budget.
-                // If Budget = 1.2 * Expense, then Expense < Budget -> Under Budget.
                 const variance = 0.8 + Math.random() * 0.45; // 0.8 to 1.25
                 budgetAmount = Math.round(estimatedAnnual * variance / 100) * 100; // Round to nearest 100
             } else if (sub.yearlyBudget && sub.yearlyBudget > 0) {
@@ -113,30 +116,25 @@ class MockDatabase {
             }
         });
 
-        // Also generate for 2025 for seamless transition (Dec 2025 data exists)
-        // For 2025, just use the default logic or simplified version since user focuses on 2026
-        subcategories.forEach(sub => {
-            if (sub.yearlyBudget && sub.yearlyBudget > 0) {
-                budgets.push({
-                    id: uuidv4(),
-                    year: 2025,
-                    categoryId: sub.parentId,
-                    subcategoryId: sub.id,
-                    amount: sub.yearlyBudget,
-                    createdAt: now,
-                    updatedAt: now
-                });
-            }
-        });
+        // 不再產生過去年份的預算（如 2025），只產生當年度
 
         return budgets;
     }
 
     private generateFakeTransactions(categories: Category[], subcategories: Subcategory[]): Transaction[] {
         const transactions: Transaction[] = [];
-        const startDate = new Date('2025-12-01');
-        const endDate = new Date('2026-06-30');
         const now = new Date();
+
+        // 動態日期範圍：當年度第1天到今天
+        const startDate = new Date(now.getFullYear(), 0, 1); // 1/1
+        const endDate = new Date(now); // 今天
+
+        // 計算天數
+        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+        // 動態計算交易數量：平均每天 3-7 筆，最多 300 筆
+        const avgPerDay = 3 + Math.random() * 4; // 3-7 筆/天
+        const transactionCount = Math.min(300, Math.floor(daysDiff * avgPerDay));
 
         // Helper to get random item from array
         const getRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -146,8 +144,8 @@ class MockDatabase {
             return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
         };
 
-        // Generate ~300 transactions
-        for (let i = 0; i < 300; i++) {
+        // 產生動態數量的交易
+        for (let i = 0; i < transactionCount; i++) {
             const date = getRandomDate(startDate, endDate);
             // Filter expense categories for transactions
             const expenseCats = categories.filter(c => c.type === 'expense');
@@ -176,14 +174,17 @@ class MockDatabase {
             });
         }
 
-        // Add some income
+        // Add income - 只產生當年度已過月份的薪資
         const incomeCat = categories.find(c => c.type === 'income');
         if (incomeCat) {
             const relevantSubs = subcategories.filter(s => s.parentId === incomeCat.id);
-            // Monthly salary for each month
-            let currentDate = new Date(startDate);
-            while (currentDate <= endDate) {
-                const salaryDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 5); // 5th of each month
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth(); // 0-11
+
+            // 產生每個已過月份的薪資（每月第5天）
+            for (let month = 0; month <= currentMonth; month++) {
+                const salaryDate = new Date(currentYear, month, 5);
+                // 只新增不超過今天的薪資
                 if (salaryDate <= endDate) {
                     transactions.push({
                         id: uuidv4(),
@@ -198,7 +199,6 @@ class MockDatabase {
                         updatedAt: now
                     });
                 }
-                currentDate.setMonth(currentDate.getMonth() + 1);
             }
         }
 

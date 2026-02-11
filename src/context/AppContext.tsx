@@ -147,7 +147,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const {
         data: categories,
-        loading: categoriesLoading,
         add: addCategoryFn,
         update: updateCategoryFn,
         remove: deleteCategoryFn
@@ -158,7 +157,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const {
         data: subcategories,
-        loading: subcategoriesLoading,
         add: addSubcategoryFn,
         update: updateSubcategoryFn,
         remove: deleteSubcategoryFn
@@ -167,35 +165,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         orderByOrder
     );
 
-    // Auto-initialize categories for new users
-    React.useEffect(() => {
-        // 只在以下情況自動初始化：
-        // 1. 有 userId
-        // 2. categories 已載入完成（loading 為 false）
-        // 3. subcategories 已載入完成（loading 為 false）
-        // 4. categories 為空陣列
-        // 5. subcategories 也為空陣列
-        if (!userId) return;
-
-        // 等待資料載入完成
-        if (!categoriesLoading && !subcategoriesLoading) {
-            if (categories.length === 0 && subcategories.length === 0) {
-                const initialize = async () => {
-                    try {
-                        console.log('🎉 檢測到新用戶，自動初始化預設分類...');
-                        const { initializeFirestoreData } = await import('../utils/dataMigration');
-                        await initializeFirestoreData(userId);
-                        console.log('✅ 預設分類初始化完成！');
-                        // Force a reload to refresh the context with new data? 
-                        // Actually useFirestoreCollection should auto-update since it listens to snapshots.
-                    } catch (error) {
-                        console.error('❌ 自動初始化失敗:', error);
-                    }
-                };
-                initialize();
-            }
-        }
-    }, [userId, categories.length, subcategories.length, categoriesLoading, subcategoriesLoading]);
+    // ⚠️ 自動初始化功能已移除
+    // 原因：產品定位改為「個人使用 + Demo」，不需要自動為新用戶建立預設分類
+    // 新用戶需要由管理員在「管理設定」頁面手動執行「初始化預設分類」功能
+    // 如需恢復自動初始化，請參考 git 歷史中的實作
 
     // Dynamic Transaction Filtering State
     // subscribedFilter determines what we FETCH from Firestore

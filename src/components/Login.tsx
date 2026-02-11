@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
-import Register from './Register';
+// 註冊功能已隱藏
+// 原因：此應用定位為「個人使用 + Demo」，不開放自行註冊
+// 狀態：基本功能已完成，但因產品定位改變而暫時隱藏
+// 如需開放註冊，請取消以下註解並取消第 32-33 行和第 124-131 行的註解
+// import Register from './Register';
 
 const Login: React.FC = () => {
     const { loginAsGuest } = useFirebaseAuth();
@@ -10,7 +14,8 @@ const Login: React.FC = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [showRegister, setShowRegister] = useState(false);
+    // 註冊功能已隱藏：不再需要 showRegister state
+    // const [showRegister, setShowRegister] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,10 +31,10 @@ const Login: React.FC = () => {
         }
     };
 
-    // 如果顯示註冊畫面，渲染 Register 組件
-    if (showRegister) {
-        return <Register onSwitchToLogin={() => setShowRegister(false)} />;
-    }
+    // 註冊功能已隱藏：不再顯示註冊畫面
+    // if (showRegister) {
+    //     return <Register onSwitchToLogin={() => setShowRegister(false)} />;
+    // }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -116,7 +121,8 @@ const Login: React.FC = () => {
                         {loading ? '登入' : '登入'}
                     </button>
 
-                    <div className="text-center">
+                    {/* 註冊功能已隱藏：不開放自行註冊 */}
+                    {/* <div className="text-center">
                         <button
                             type="button"
                             onClick={() => setShowRegister(true)}
@@ -124,7 +130,7 @@ const Login: React.FC = () => {
                         >
                             註冊新帳號
                         </button>
-                    </div>
+                    </div> */}
                 </form>
             </div>
         </div>

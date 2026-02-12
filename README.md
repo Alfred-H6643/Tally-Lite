@@ -1,6 +1,6 @@
-# Money Tracker
+# TallyLite
 
-A personal money tracking application built with React, TypeScript, and Vite.
+A lightweight, personal money tracking application built with React, TypeScript, and Vite. Designed for speed, privacy, and simplicity.
 
 ## Features
 
@@ -8,6 +8,15 @@ A personal money tracking application built with React, TypeScript, and Vite.
 - **Transactions**: Add and manage daily income and expenses.
 - **Reports**: Visual breakdown of spending by category.
 - **Settings**: Configuration for categories, budgets, and more.
+
+## Why TallyLite?
+
+| Feature | **TallyLite** | **Gamified Apps** | **Traditional Apps** |
+| :--- | :--- | :--- | :--- |
+| **Speed** | **Instant** (<1s load) | **Heavy** (Game assets) | **Medium** |
+| **Focus** | **Pure Finance** | **City Building / Gaming** | **Upselling / Ads** |
+| **Data Ownership** | **100% JSON Export** | **Cloud Locked** | **Account Required** |
+
 
 ## Getting Started
 

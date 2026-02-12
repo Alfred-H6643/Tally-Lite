@@ -1,6 +1,6 @@
 {
-    "name": "ah-money-tracker",
-    "short_name": "AH Money",
+    "name": "tally-lite",
+    "short_name": "TallyLite",
     "description": "A powerful and beautiful money tracker for personal use.",
     "start_url": "/",
     "display": "standalone",

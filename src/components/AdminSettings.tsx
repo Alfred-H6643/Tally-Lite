@@ -469,7 +469,7 @@ const AdminSettings: React.FC = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-1">用戶 UID</label>
                             <input
                                 type="text"
-                                placeholder="例如: ftqQxIbyX6WRhLDhywYmwJ0yKw12"
+                                placeholder="例如: aBcDeFgHiJkLmNoPqRsTuVwXyZ12"
                                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
                                 id="roleUserId"
                             />

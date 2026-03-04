@@ -1,5 +1,8 @@
 import admin from 'firebase-admin';
 import { readFileSync } from 'fs';
+import { config } from 'dotenv';
+
+config(); // 載入 .env
 
 // 讀取 Service Account Key
 const serviceAccount = JSON.parse(
@@ -13,9 +16,14 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// 用戶 ID 設定
-const PROD_USER_ID = 'ftqQxIbyX6WRhLDhywYmwJ0yKw12'; // alfred.mc.hsu@gmail.com
-const DEV_USER_ID = '9HqyWH9f0dSwKAR5yIBUBfx4GFM2';  // 開發帳號
+// 用戶 ID 從環境變數讀取
+const PROD_USER_ID = process.env.PROD_USER_ID;
+const DEV_USER_ID = process.env.DEV_USER_ID;
+
+if (!PROD_USER_ID || !DEV_USER_ID) {
+    console.error('❌ 請在 scripts/.env 中設定 PROD_USER_ID 和 DEV_USER_ID');
+    process.exit(1);
+}
 
 /**
  * 設定用戶角色

@@ -1,7 +1,7 @@
 {
-    "name": "ah-track-money-scripts",
+    "name": "tally-lite-scripts",
     "version": "1.0.0",
-    "description": "Data migration and management scripts for ah-track-money",
+    "description": "Data migration and management scripts for TallyLite",
     "type": "module",
     "scripts": {
         "set-roles": "node setUserRoles.js",

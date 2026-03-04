@@ -411,7 +411,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Export Settings State (Persisted to LocalStorage)
     const [exportSettings, setExportSettings] = useState(() => {
-        const saved = localStorage.getItem('ah_money_export_settings');
+        const saved = localStorage.getItem('tally_lite_export_settings');
         // Migrate old format or default
         const parsed = saved ? JSON.parse(saved) : {};
         return { scriptUrl: parsed.scriptUrl || '' };
@@ -419,7 +419,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const updateExportSettings = (settings: { scriptUrl: string }) => {
         setExportSettings(settings);
-        localStorage.setItem('ah_money_export_settings', JSON.stringify(settings));
+        localStorage.setItem('tally_lite_export_settings', JSON.stringify(settings));
     };
 
     const openModal = React.useCallback((transaction?: Transaction, date?: Date) => {

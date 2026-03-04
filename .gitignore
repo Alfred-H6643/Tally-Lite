@@ -27,6 +27,11 @@ dist-ssr
 .env
 .env.local
 .env.*
+!.env.example
 
 # Firebase Service Account Key (Scripts)
 scripts/serviceAccountKey.json
+scripts/.env
+
+# Development-only files
+DEVELOPMENT_PRINCIPLES.md

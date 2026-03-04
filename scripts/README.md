@@ -15,7 +15,22 @@
 
 ⚠️ **重要**: `serviceAccountKey.json` 包含敏感資訊，請確保它已經加入 `.gitignore`，不要提交到版本控制。
 
-### 2. 安裝依賴
+### 2. 設定環境變數
+
+複製 `.env.example` 並填入你的 Firebase 用戶 UID：
+
+```bash
+cp .env.example .env
+```
+
+編輯 `.env`，填入對應的 Firebase UID：
+
+```
+PROD_USER_ID="your-production-firebase-uid"
+DEV_USER_ID="your-development-firebase-uid"
+```
+
+### 3. 安裝依賴
 
 ```bash
 cd scripts
@@ -27,8 +42,8 @@ npm install
 ### 🔑 設定用戶角色 (`setUserRoles.js`)
 
 設定兩個帳號的角色：
-- 正式帳號 (ftqQxIbyX6WRhLDhywYmwJ0yKw12) → `user` (一般用戶)
-- 開發帳號 (9HqyWH9f0dSwKAR5yIBUBfx4GFM2) → `admin` (管理員)
+- 正式帳號 (PROD_USER_ID) → `user` (一般用戶)
+- 開發帳號 (DEV_USER_ID) → `admin` (管理員)
 
 **執行方式:**
 ```bash
@@ -52,7 +67,7 @@ node setUserRoles.js
 - ✅ 所有子分類 (subcategories)
 - ✅ 所有專案標籤 (projectTags)
 - ✅ 所有預算設定 (budgets)
-- ✅ 2024/11/1 ~ 2025/1/31 的交易記錄 (transactions)
+- ✅ 指定日期範圍的交易記錄 (transactions)
 - ✅ 個人設定 (config/profile) - 並設定開發帳號為管理員
 
 **執行方式:**
@@ -93,5 +108,7 @@ const END_DATE = new Date('2025-01-31T23:59:59+08:00');
 ## 安全提醒
 
 - ⚠️ **永遠不要** 將 `serviceAccountKey.json` 提交到 Git
+- ⚠️ **永遠不要** 將 `scripts/.env` 提交到 Git
 - ⚠️ 執行前先備份重要資料
 - ⚠️ 建議先在測試環境執行
+

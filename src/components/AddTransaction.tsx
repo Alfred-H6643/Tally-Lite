@@ -36,7 +36,6 @@ const ProjectTagSelector = React.memo(({ projectTags, selectedProjectIds, onTogg
                     <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-hide">
                         {projectTags
                             .filter(p => p.status === 'active')
-                            .sort((a, b) => a.order - b.order)
                             .map(project => (
                                 <button
                                     key={project.id}

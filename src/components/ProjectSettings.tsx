@@ -45,28 +45,6 @@ const ProjectSettings: React.FC = () => {
         setIsEditing(null);
     };
 
-    const moveTag = (index: number, direction: 'up' | 'down') => {
-        if (direction === 'up' && index === 0) return;
-        if (direction === 'down' && index === projectTags.length - 1) return;
-
-        const newTags = [...projectTags];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-
-        // Swap basic swap logic - in a real app better to update 'order' field properly
-        // For now we rely on the array order in context
-        // But since context updates based on array order, we need to swap the objects and update orders
-        const temp = newTags[index];
-        newTags[index] = newTags[targetIndex];
-        newTags[targetIndex] = temp;
-
-        // Update orders
-        newTags.forEach((tag, idx) => {
-            if (tag.order !== idx) {
-                updateProjectTag({ ...tag, order: idx });
-            }
-        });
-    };
-
     return (
         <div className="flex flex-col h-full bg-gray-50">
             {/* Header */}
@@ -83,8 +61,7 @@ const ProjectSettings: React.FC = () => {
             {/* List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {projectTags
-                    .sort((a, b) => a.order - b.order)
-                    .map((tag, index) => (
+                    .map((tag) => (
                         <div key={tag.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between">
                             {isEditing === tag.id ? (
                                 <div className="flex-1 flex gap-2">
@@ -105,21 +82,30 @@ const ProjectSettings: React.FC = () => {
                             ) : (
                                 <>
                                     <div className="flex items-center gap-3">
-                                        <div className="flex flex-col gap-1">
-                                            {index > 0 && (
-                                                <button onClick={() => moveTag(index, 'up')} className="text-gray-400 hover:text-gray-600">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
-                                                </button>
-                                            )}
-                                            {index < projectTags.length - 1 && (
-                                                <button onClick={() => moveTag(index, 'down')} className="text-gray-400 hover:text-gray-600">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-                                                </button>
-                                            )}
-                                        </div>
-                                        <span className="font-medium text-gray-700">{tag.name}</span>
+                                        <span className={`font-medium ${tag.status === 'archived' ? 'text-gray-400' : 'text-gray-700'}`}>
+                                            {tag.name}
+                                        </span>
+                                        {tag.status === 'archived' && (
+                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">已隱藏</span>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => {
+                                                updateProjectTag({
+                                                    ...tag,
+                                                    status: tag.status === 'active' ? 'archived' : 'active'
+                                                });
+                                            }}
+                                            className={`p-2 ${tag.status === 'active' ? 'text-gray-400 hover:text-gray-600' : 'text-gray-400 hover:text-blue-500'}`}
+                                            title={tag.status === 'active' ? '隱藏 (不顯示於新增交易)' : '顯示'}
+                                        >
+                                            {tag.status === 'active' ? (
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                            ) : (
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                            )}
+                                        </button>
                                         <button
                                             onClick={() => startEdit(tag)}
                                             className="text-gray-400 hover:text-blue-500 p-2"

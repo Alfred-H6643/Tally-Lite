@@ -61,6 +61,7 @@ export interface ProjectTag {
     name: string;
     status: 'active' | 'archived';
     order: number;
+    createdAt?: Date;
 }
 
 export interface UserSettings {

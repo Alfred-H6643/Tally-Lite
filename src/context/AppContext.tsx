@@ -144,6 +144,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Firestore Collections
     // Only fetch if we have a userId
     const orderByOrder = React.useMemo(() => [orderBy('order', 'asc')], []);
+    const orderByCreatedAtDesc = React.useMemo(() => [orderBy('createdAt', 'desc')], []);
 
     const {
         data: categories,
@@ -232,7 +233,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         remove: deleteProjectTagFn
     } = useFirestoreCollection<ProjectTag>(
         userId ? `users/${userId}/projectTags` : '',
-        orderByOrder
+        orderByCreatedAtDesc
     );
 
     const {

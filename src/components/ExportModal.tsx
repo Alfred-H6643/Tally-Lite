@@ -56,7 +56,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
         }
 
         if (!exportSettings.scriptUrl) {
-            setErrorMessage('系統尚未設定 Google Script URL，請聯繫管理員 (Admin Settings)。');
+            setErrorMessage('系統尚未設定 Google Script URL，請設定環境變數或至 Admin Settings 手動填入。');
             return;
         }
 

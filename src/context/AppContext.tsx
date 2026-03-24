@@ -412,10 +412,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Export Settings State (Persisted to LocalStorage)
     const [exportSettings, setExportSettings] = useState(() => {
+        const envUrl = import.meta.env.VITE_GAS_SCRIPT_URL || '';
         const saved = localStorage.getItem('tally_lite_export_settings');
-        // Migrate old format or default
+        // LocalStorage override takes priority if set, otherwise use env var
         const parsed = saved ? JSON.parse(saved) : {};
-        return { scriptUrl: parsed.scriptUrl || '' };
+        return { scriptUrl: parsed.scriptUrl || envUrl };
     });
 
     const updateExportSettings = (settings: { scriptUrl: string }) => {

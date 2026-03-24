@@ -307,6 +307,16 @@ class MockDatabase {
         this.notify(collectionName);
     }
 
+    public async get(path: string): Promise<any[]> {
+        const collectionName = this.getCollectionNameFromPath(path);
+        if (!collectionName) return [];
+        const data = [...this.data[collectionName]];
+        if (collectionName === 'transactions') {
+            (data as Transaction[]).sort((a, b) => b.date.getTime() - a.date.getTime());
+        }
+        return data;
+    }
+
     private notify(collectionName: CollectionName) {
         const listeners = this.listeners.get(collectionName);
         if (listeners) {

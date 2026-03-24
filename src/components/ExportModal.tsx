@@ -4,6 +4,10 @@ import { format, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import Papa from 'papaparse';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '../services/firebase';
+import { mockDb } from '../services/mockDatabase';
+import type { Transaction } from '../types';
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -14,7 +18,7 @@ type ExportStatus = 'idle' | 'validating' | 'generating' | 'sending' | 'success'
 
 const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
     const { user } = useFirebaseAuth();
-    const { transactions, categories, subcategories, projectTags, exportSettings } = useAppContext();
+    const { categories, subcategories, projectTags, exportSettings } = useAppContext();
 
     const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -64,11 +68,39 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
             setStatus('generating');
             setProgress('正在準備資料...');
 
-            // 2. Filter Data
-            const filteredTransactions = transactions.filter(t => {
-                const d = new Date(t.date);
-                return d >= start && d <= end;
-            });
+            // 2. Fetch Data Directly (to support large date ranges not loaded in AppContext)
+            let filteredTransactions: Transaction[] = [];
+
+            // Add time to the end date to include the entire day (up to 23:59:59)
+            // Firebase queries need exact matching, new Date(endDate) is local midnight.
+            const endInclusive = new Date(end);
+            endInclusive.setHours(23, 59, 59, 999);
+
+            if (user?.uid === 'GUEST') {
+                const allMockTx = await mockDb.get(`users/GUEST/transactions`) as Transaction[];
+                filteredTransactions = allMockTx.filter(t => {
+                    const d = new Date(t.date);
+                    return d >= start && d <= endInclusive;
+                });
+            } else if (user?.uid) {
+                const constraints = [
+                    where('date', '>=', start),
+                    where('date', '<=', endInclusive),
+                    orderBy('date', 'desc')
+                ];
+                const q = query(collection(db, `users/${user.uid}/transactions`), ...constraints);
+                const snapshot = await getDocs(q);
+                filteredTransactions = snapshot.docs.map(docSnap => {
+                    const data = docSnap.data();
+                    return {
+                        id: docSnap.id,
+                        ...data,
+                        ...(data.createdAt?.toDate && { createdAt: data.createdAt.toDate() }),
+                        ...(data.updatedAt?.toDate && { updatedAt: data.updatedAt.toDate() }),
+                        ...(data.date?.toDate && { date: data.date.toDate() })
+                    } as Transaction;
+                });
+            }
 
             if (filteredTransactions.length === 0) {
                 setErrorMessage('選定的日期範圍內沒有交易記錄');

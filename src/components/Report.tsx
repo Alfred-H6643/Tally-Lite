@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear, addYears, subYears, isWithinInterval, parse, differenceInDays } from 'date-fns';
-import { BarChart, Bar, Tooltip, ResponsiveContainer, Cell, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
+import { BarChart, Bar, ResponsiveContainer, Cell, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,12 +19,8 @@ interface ChartDataItem {
     color: string;
     icon: string;
     budget: number | null;
-}
-
-interface CustomTooltipProps {
-    active?: boolean;
-    payload?: any; // Recharts provides complex readonly array type
-    transactionType: TransactionType;
+    ytdBalance?: number | null;
+    currentPeriodExpense?: number;
 }
 
 interface CustomYAxisTickProps {
@@ -44,54 +40,6 @@ interface CustomBarLabelProps {
     chartData: ChartDataItem[];
     [key: string]: any; // Allow other props from recharts
 }
-
-// Custom Tooltip Component (outside of Report component)
-const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, transactionType }) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        const budget = data.budget;
-        const remaining = budget !== null ? budget - data.value : null;
-
-        return (
-            <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100 z-50">
-                <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl" style={{ color: data.color }}>{data.icon}</span>
-                    <span className="font-bold text-gray-800">{data.name}</span>
-                </div>
-                <div className="space-y-1 text-sm">
-                    {transactionType === 'budget' ? (
-                        <div className="flex justify-between gap-4">
-                            <span className="text-gray-500">預算額度:</span>
-                            <span className="font-bold text-blue-600">TWD ${data.value.toLocaleString()}</span>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="flex justify-between gap-4">
-                                <span className="text-gray-500">{transactionType === 'expense' ? '費用' : '收入'}:</span>
-                                <span className={`font-bold ${transactionType === 'income' ? 'text-green-500' : 'text-[#E3B873]'}`}>TWD ${data.value.toLocaleString()}</span>
-                            </div>
-                            {budget !== null && remaining !== null && (
-                                <>
-                                    <div className="flex justify-between gap-4">
-                                        <span className="text-gray-500">預算:</span>
-                                        <span className="font-medium text-blue-600">TWD ${budget.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between gap-4 pt-1 border-t border-gray-100 mt-1">
-                                        <span className="text-gray-500">剩餘:</span>
-                                        <span className={`font-bold ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                            TWD ${remaining.toLocaleString()}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
-                        </>
-                    )}
-                </div>
-            </div>
-        );
-    }
-    return null;
-};
 
 // Custom Y-axis Tick Component (outside of Report component)
 const CustomYAxisTick: React.FC<CustomYAxisTickProps> = ({ x = 0, y = 0, payload, chartData, totalExpenses }) => {
@@ -207,6 +155,7 @@ interface SubcategoryReportItemProps {
     projectTags: any[];
     onEditClick: (t: any) => void;
     ytdBalance: number | null;
+    currentPeriodExpense?: number;
 }
 
 const SubcategoryReportItem = React.memo(({
@@ -219,7 +168,8 @@ const SubcategoryReportItem = React.memo(({
     subTransactions,
     projectTags,
     onEditClick,
-    ytdBalance
+    ytdBalance,
+    currentPeriodExpense
 }: SubcategoryReportItemProps) => {
     const subRemaining = subBudget !== null ? subBudget - total : null;
     const usagePercent = subBudget ? Math.round((total / subBudget) * 100) : 0;
@@ -264,7 +214,13 @@ const SubcategoryReportItem = React.memo(({
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-700">${total.toLocaleString()}</div>
+                    {transactionType === 'budget' && currentPeriodExpense !== undefined && subBudget !== null ? (
+                        <div className={`text-sm font-semibold ${subBudget - currentPeriodExpense >= 0 ? 'text-gray-700' : 'text-red-500'}`}>
+                            ${(subBudget - currentPeriodExpense).toLocaleString()}
+                        </div>
+                    ) : (
+                        <div className="text-sm font-semibold text-gray-700">${total.toLocaleString()}</div>
+                    )}
                     {subRemaining !== null && transactionType !== 'budget' && (
                         <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                             {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
@@ -379,7 +335,13 @@ const CategoryReportItem = React.memo(({
                         </div>
                     </div>
                     <div className="text-right">
-                        <div className="font-bold text-gray-800">${item.value.toLocaleString()}</div>
+                        {transactionType === 'budget' && item.currentPeriodExpense !== undefined && budget !== null ? (
+                            <div className={`font-bold ${budget - item.currentPeriodExpense >= 0 ? 'text-gray-800' : 'text-red-500'}`}>
+                                ${(budget - item.currentPeriodExpense).toLocaleString()}
+                            </div>
+                        ) : (
+                            <div className="font-bold text-gray-800">${item.value.toLocaleString()}</div>
+                        )}
                         {remaining !== null && transactionType !== 'budget' && (
                             <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 {remaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(remaining).toLocaleString()}
@@ -426,6 +388,7 @@ const CategoryReportItem = React.memo(({
                                     subTransactions={subTransactions}
                                     projectTags={projectTags}
                                     ytdBalance={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.ytdBalance || null}
+                                    currentPeriodExpense={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.currentPeriodExpense}
                                     onEditClick={onEditClick}
                                 />
                             ))}
@@ -642,6 +605,26 @@ const Report: React.FC = () => {
         return accumulatedBudget - totalSpent;
     }, [viewMode, transactionType, currentMonth, dateRange.end, transactions, getBudgetForCategory, getBudgetForSubcategory, appliedProjectTags]);
 
+    const getCurrentPeriodExpense = React.useCallback((categoryId?: string, subcategoryId?: string) => {
+        if (transactionType !== 'budget') return 0;
+        
+        const periodTransactions = transactions.filter(t => {
+            const tDate = new Date(t.date);
+            const isInRange = isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+            const isCorrectType = t.type === 'expense';
+            const matchesCategory = categoryId ? t.categoryId === categoryId : true;
+            const matchesSubcategory = subcategoryId ? t.subcategoryId === subcategoryId : true;
+
+            const matchesProjectTags = appliedProjectTags.length > 0
+                ? t.tags && t.tags.some(tag => appliedProjectTags.includes(tag))
+                : true;
+
+            return isCorrectType && isInRange && matchesCategory && matchesSubcategory && matchesProjectTags;
+        });
+
+        return periodTransactions.reduce((sum, t) => sum + convertAmountToTWD(t.amount, t.currency || 'TWD'), 0);
+    }, [dateRange, transactions, transactionType, appliedProjectTags]);
+
     const chartData = useMemo(() => {
         if (transactionType === 'budget') {
             // Handle Budget View
@@ -656,7 +639,8 @@ const Report: React.FC = () => {
                         color: category.color,
                         icon: category.icon,
                         budget: budget, // In budget mode, value IS the budget
-                        ytdBalance: getYTDBalance(category.id) // Calculate YTD for budget view
+                        ytdBalance: getYTDBalance(category.id), // Calculate YTD for budget view
+                        currentPeriodExpense: getCurrentPeriodExpense(category.id)
                     });
                 }
             });
@@ -698,7 +682,7 @@ const Report: React.FC = () => {
         });
 
         return data.sort((a, b) => b.value - a.value);
-    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions, getYTDBalance]);
+    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions, getYTDBalance, getCurrentPeriodExpense]);
 
     // Calculate total expenses for percentage
     const totalExpenses = useMemo(() => {
@@ -728,7 +712,8 @@ const Report: React.FC = () => {
                 // Add YTD balance uniformly with expense/income mode approach
                 map.set(categoryId, subs.map(item => ({
                     ...item,
-                    ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null
+                    ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null,
+                    currentPeriodExpense: getCurrentPeriodExpense(categoryId, item.subcategory.id)
                 })));
                 return;
             }
@@ -771,7 +756,7 @@ const Report: React.FC = () => {
                 .sort((a: any, b: any) => b.total - a.total));
         });
         return map;
-    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget, viewMode, getYTDBalance]);
+    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget, viewMode, getYTDBalance, getCurrentPeriodExpense]);
 
     const toggleCategory = React.useCallback((categoryId: string) => {
         setExpandedCategories(prev => {
@@ -1032,12 +1017,7 @@ const Report: React.FC = () => {
                                                 />
                                             )}
                                         />
-                                        <Tooltip
-                                            content={(props) => (
-                                                <CustomTooltip {...props} transactionType={transactionType} />
-                                            )}
-                                            cursor={{ fill: 'transparent' }}
-                                        />
+
                                         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} isAnimationActive={false}>
                                             {chartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />

@@ -30,14 +30,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const endTimestamp = Timestamp.fromDate(new Date(`${endDateStr}T23:59:59`));
 
   try {
+    let txQuery = adminDb
+      .collection(`users/${userId}/transactions`)
+      .where('date', '>=', startTimestamp)
+      .where('date', '<=', endTimestamp)
+      .orderBy('date', 'desc');
+
+    if (req.query.limit) {
+      const parsedLimit = parseInt(req.query.limit as string, 10);
+      if (!isNaN(parsedLimit) && parsedLimit > 0) {
+        txQuery = txQuery.limit(parsedLimit);
+      }
+    }
+
     // 平行抓取 transactions、categories、subcategories
     const [txSnap, catSnap, subSnap] = await Promise.all([
-      adminDb
-        .collection(`users/${userId}/transactions`)
-        .where('date', '>=', startTimestamp)
-        .where('date', '<=', endTimestamp)
-        .orderBy('date', 'desc')
-        .get(),
+      txQuery.get(),
       adminDb.collection(`users/${userId}/categories`).get(),
       adminDb.collection(`users/${userId}/subcategories`).get(),
     ]);

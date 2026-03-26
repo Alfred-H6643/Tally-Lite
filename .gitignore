@@ -35,3 +35,7 @@ scripts/.env
 
 # Development-only files
 DEVELOPMENT_PRINCIPLES.md
+
+# AI Agent Specific Files
+tally_lite_api_agent_docs.md
+claude_progress.md

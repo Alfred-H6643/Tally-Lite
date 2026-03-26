@@ -501,46 +501,48 @@ const Report: React.FC = () => {
         // 根據報表的日期範圍確定年度 (使用範圍起始日期的年份)
         const year = dateRange.start.getFullYear();
 
-        // 使用新的年度預算系統
+        // 月視角：直接向 Context 索取單月預算（尊重 monthlyAmounts 設定）
+        if (viewMode === 'month') {
+            const yearlyBudget = getBudgetForCategory(categoryId, year);
+            if (yearlyBudget === 0) return null; // 完全沒設預算，不顯示
+            const monthIndex = dateRange.start.getMonth();
+            return getBudgetForCategory(categoryId, year, monthIndex); // 可能為 0，但仍顯示
+        }
+
+        // 其餘視角（年、自訂）索取年度預算再運算
         const yearlyBudget = getBudgetForCategory(categoryId, year);
         if (yearlyBudget === 0) return null;
 
-        if (viewMode === 'month') {
-            return Math.round(yearlyBudget / 12);
-        }
-        if (viewMode === 'year') {
-            return yearlyBudget;
-        }
+        if (viewMode === 'year') return yearlyBudget;
 
         // Custom Mode: Pro-rate by days
         const daysInRange = differenceInDays(dateRange.end, dateRange.start) + 1;
         const dailyBudget = yearlyBudget / 365;
-        const budgetForRange = Math.round(dailyBudget * daysInRange);
-
-        return budgetForRange;
+        return Math.round(dailyBudget * daysInRange);
     }, [dateRange, getBudgetForCategory, viewMode]);
 
     const getSubcategoryBudget = React.useCallback((subcategoryId: string) => {
         // 根據報表的日期範圍確定年度 (使用範圍起始日期的年份)
         const year = dateRange.start.getFullYear();
 
-        // 使用新的年度預算系統
+        // 月視角：直接向 Context 索取單月預算（尊重 monthlyAmounts 設定）
+        if (viewMode === 'month') {
+            const yearlyBudget = getBudgetForSubcategory(subcategoryId, year);
+            if (yearlyBudget === 0) return null; // 完全沒設預算，不顯示
+            const monthIndex = dateRange.start.getMonth();
+            return getBudgetForSubcategory(subcategoryId, year, monthIndex); // 可能為 0，但仍顯示
+        }
+
+        // 其餘視角（年、自訂）索取年度預算再運算
         const yearlyBudget = getBudgetForSubcategory(subcategoryId, year);
         if (yearlyBudget === 0) return null;
 
-        if (viewMode === 'month') {
-            return Math.round(yearlyBudget / 12);
-        }
-        if (viewMode === 'year') {
-            return yearlyBudget;
-        }
+        if (viewMode === 'year') return yearlyBudget;
 
         // Custom Mode: Pro-rate by days
         const daysInRange = differenceInDays(dateRange.end, dateRange.start) + 1;
         const dailyBudget = yearlyBudget / 365;
-        const budgetForRange = Math.round(dailyBudget * daysInRange);
-
-        return budgetForRange;
+        return Math.round(dailyBudget * daysInRange);
     }, [dateRange, getBudgetForSubcategory, viewMode]);
 
     // Get transactions for a specific category or subcategory - 包含專案標籤篩選
@@ -575,12 +577,15 @@ const Report: React.FC = () => {
 
         if (fullYearBudget === 0) return null;
 
-        // Budget calculation:
-        // - For yearly budgets: divide by 12 to get monthly average, then multiply by months elapsed
-        // - For monthly budgets: getBudgetForCategory returns the yearly sum, same calculation applies
-        // This gives us the accumulated budget from January to current month (inclusive)
-        const monthsCount = currentMonth.getMonth() + 1;
-        const accumulatedBudget = Math.round((fullYearBudget / 12) * monthsCount);
+        // 逐月累加（尊重 monthlyAmounts 各月設定，避免平均分攤造成誤差）
+        const currentMonthIndex = currentMonth.getMonth();
+        let accumulatedBudget = 0;
+        for (let m = 0; m <= currentMonthIndex; m++) {
+            const monthBudget = subcategoryId
+                ? getBudgetForSubcategory(subcategoryId, year, m)
+                : getBudgetForCategory(categoryId!, year, m);
+            accumulatedBudget += monthBudget;
+        }
 
         // 2. Calculate Accumulated Expenses (always use 'expense' type for YTD calculation)
         const ytdTransactions = transactions.filter(t => {
@@ -631,7 +636,7 @@ const Report: React.FC = () => {
             const data: any[] = [];
             categories.forEach(category => {
                 const budget = getCategoryBudget(category.id);
-                if (budget && budget > 0) {
+                if (budget !== null) {
                     data.push({
                         categoryId: category.id,
                         name: category.name,
@@ -702,11 +707,12 @@ const Report: React.FC = () => {
                         const budget = getSubcategoryBudget(s.id);
                         return {
                             subcategory: s,
-                            total: budget || 0,
+                            total: budget ?? 0,
+                            hasBudget: budget !== null,
                             subTransactions: [] // No transactions shown in budget mode
                         };
                     })
-                    .filter(item => item.total > 0)
+                    .filter(item => item.hasBudget)
                     .sort((a, b) => b.total - a.total);
 
                 // Add YTD balance uniformly with expense/income mode approach

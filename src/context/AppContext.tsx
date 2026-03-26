@@ -40,8 +40,8 @@ interface AppContextType {
     addBudget: (budget: Budget) => void;
     updateBudget: (budget: Budget) => void;
     deleteBudget: (id: string) => void;
-    getBudgetForCategory: (categoryId: string, year: number) => number;
-    getBudgetForSubcategory: (subcategoryId: string, year: number) => number;
+    getBudgetForCategory: (categoryId: string, year: number, monthIndex?: number) => number;
+    getBudgetForSubcategory: (subcategoryId: string, year: number, monthIndex?: number) => number;
     copyBudgetsToYear: (fromYear: number, toYear: number) => void;
 
     // Transaction Filtering (Dynamic Loading)
@@ -369,7 +369,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const deleteBudget = (id: string) => deleteBudgetFn(id);
 
     // Helper functions
-    const getBudgetForCategory = React.useCallback((categoryId: string, year: number): number => {
+    const getBudgetForCategory = React.useCallback((categoryId: string, year: number, monthIndex?: number): number => {
         // New Logic: Category Budget is the SUM of all its Subcategory Budgets.
         // We ignore explicit parent-level budgets (where subcategoryId is null/undefined).
         const subBudgets = budgets.filter(
@@ -378,18 +378,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 b.year === year
         );
 
-        const total = subBudgets.reduce((sum, b) => sum + b.amount, 0);
-        return total;
+        return subBudgets.reduce((sum, b) => {
+            if (monthIndex !== undefined) {
+                if (Array.isArray(b.monthlyAmounts) && b.monthlyAmounts.length === 12) {
+                    return sum + b.monthlyAmounts[monthIndex];
+                }
+                return sum + Math.round(b.amount / 12);
+            }
+            return sum + b.amount;
+        }, 0);
     }, [budgets]);
 
-    const getBudgetForSubcategory = React.useCallback((subcategoryId: string, year: number): number => {
+    const getBudgetForSubcategory = React.useCallback((subcategoryId: string, year: number, monthIndex?: number): number => {
         const budget = budgets.find(
             b => b.subcategoryId === subcategoryId &&
                 b.year === year
         );
-        if (budget) return budget.amount;
-        // Removed deprecated fallback to subcategory.yearlyBudget
-        return 0;
+        if (!budget) return 0;
+        if (monthIndex !== undefined) {
+            if (Array.isArray(budget.monthlyAmounts) && budget.monthlyAmounts.length === 12) {
+                return budget.monthlyAmounts[monthIndex];
+            }
+            return Math.round(budget.amount / 12);
+        }
+        return budget.amount;
     }, [budgets]);
 
     const copyBudgetsToYear = (fromYear: number, toYear: number) => {

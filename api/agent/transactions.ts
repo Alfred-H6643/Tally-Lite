@@ -19,12 +19,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Server misconfiguration' });
   }
 
-  // 日期參數處理，預設當月 1 號至今
-  const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // 日期參數處理，預設當月 1 號至今（以台北時區為基準）
+  const nowTaipei = new Date(new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }));
+  const defaultStart = new Date(nowTaipei.getFullYear(), nowTaipei.getMonth(), 1);
 
   const startDateStr = (req.query.startDate as string) ?? formatDate(defaultStart);
-  const endDateStr = (req.query.endDate as string) ?? formatDate(now);
+  const endDateStr = (req.query.endDate as string) ?? formatDate(nowTaipei);
 
   const startTimestamp = Timestamp.fromDate(new Date(`${startDateStr}T00:00:00+08:00`));
   const endTimestamp = Timestamp.fromDate(new Date(`${endDateStr}T23:59:59+08:00`));
@@ -62,20 +62,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // 清洗資料
-    let totalExpense = 0;
-    let totalIncome = 0;
+    const totalExpense: Record<string, number> = {};
+    const totalIncome: Record<string, number> = {};
 
     const data = txSnap.docs.map(doc => {
       const d = doc.data();
       const amount = d.amount ?? 0;
+      const currency = d.currency ?? 'TWD';
 
-      if (d.type === 'expense') totalExpense += amount;
-      if (d.type === 'income') totalIncome += amount;
+      if (d.type === 'expense') totalExpense[currency] = (totalExpense[currency] ?? 0) + amount;
+      if (d.type === 'income') totalIncome[currency] = (totalIncome[currency] ?? 0) + amount;
 
       return {
         date: d.date instanceof Timestamp ? formatDate(d.date.toDate()) : d.date,
         type: d.type,
         amount,
+        currency,
         category: categoryMap[d.categoryId] ?? d.categoryId ?? '',
         subcategory: subcategoryMap[d.subcategoryId] ?? d.subcategoryId ?? '',
         note: d.note ?? '',
@@ -98,5 +100,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
 }

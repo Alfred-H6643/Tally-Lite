@@ -26,8 +26,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startDateStr = (req.query.startDate as string) ?? formatDate(defaultStart);
   const endDateStr = (req.query.endDate as string) ?? formatDate(now);
 
-  const startTimestamp = Timestamp.fromDate(new Date(`${startDateStr}T00:00:00`));
-  const endTimestamp = Timestamp.fromDate(new Date(`${endDateStr}T23:59:59`));
+  const startTimestamp = Timestamp.fromDate(new Date(`${startDateStr}T00:00:00+08:00`));
+  const endTimestamp = Timestamp.fromDate(new Date(`${endDateStr}T23:59:59+08:00`));
 
   try {
     let txQuery = adminDb

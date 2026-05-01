@@ -97,13 +97,15 @@ const CustomBarLabel: React.FC<CustomBarLabelProps> = ({ x = 0, y = 0, width = 0
 
 // --- Memoized Report List Components ---
 
-interface TransactionReportItemProps {
+export interface TransactionReportItemProps {
     transaction: any;
     projectTags: any[];
     onEditClick: (t: any) => void;
+    /** When provided, replaces the default note line with this single line (caller composes it, e.g. "分類 › 子分類 › note"). */
+    subtitle?: string;
 }
 
-const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClick }: TransactionReportItemProps) => {
+export const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClick, subtitle }: TransactionReportItemProps) => {
     const handleEdit = React.useCallback(() => {
         onEditClick(transaction);
     }, [onEditClick, transaction]);
@@ -113,7 +115,7 @@ const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClic
             onClick={handleEdit}
             className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer active:bg-gray-100 transition-colors"
         >
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
                 <div className="text-gray-600 flex items-center gap-2">
                     {format(new Date(transaction.date), 'yyyy/MM/dd')}
                     {transaction.tags && transaction.tags.length > 0 && (() => {
@@ -128,8 +130,12 @@ const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClic
                         ) : null;
                     })()}
                 </div>
-                {transaction.note && (
-                    <div className="text-gray-400 truncate">{transaction.note}</div>
+                {subtitle ? (
+                    <div className="text-gray-500 truncate">{subtitle}</div>
+                ) : (
+                    transaction.note && (
+                        <div className="text-gray-400 truncate">{transaction.note}</div>
+                    )
                 )}
             </div>
             <div className="text-right ml-2">
@@ -865,7 +871,18 @@ const Report: React.FC = () => {
                     <button onClick={() => navigate('/')} className="mr-4 text-gray-500 text-xl" style={{ fontVariant: 'normal' }}>
                         ↩︎
                     </button>
-                    <h1 className="text-lg font-bold flex-1 text-center pr-8">報表</h1>
+                    <h1 className="text-lg font-bold flex-1 text-center">報表</h1>
+                    <button
+                        onClick={() => navigate('/report/search')}
+                        className="ml-4 p-1 text-gray-500 active:bg-gray-100 rounded-lg transition-colors"
+                        title="搜尋備註"
+                        aria-label="搜尋備註"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 

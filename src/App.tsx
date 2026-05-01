@@ -8,6 +8,7 @@ import CategorySettings from './components/CategorySettings';
 import ProjectSettings from './components/ProjectSettings';
 import BudgetSettings from './components/BudgetSettings';
 import Report from './components/Report';
+import SearchTransactions from './components/SearchTransactions';
 import AddTransaction from './components/AddTransaction';
 import BottomNavigation from './components/BottomNavigation';
 import Login from './components/Login';
@@ -26,6 +27,7 @@ const AuthenticatedApp: React.FC = () => {
   const element = useRoutes([
     { path: "/", element: <Dashboard /> },
     { path: "/report", element: <Report /> },
+    { path: "/report/search", element: <SearchTransactions /> },
     { path: "/settings", element: <Settings /> },
     { path: "/settings/account", element: <AccountSettings /> },
     { path: "/settings/categories", element: <CategorySettings /> },

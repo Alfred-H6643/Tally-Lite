@@ -14,7 +14,6 @@ const BudgetSettings: React.FC = () => {
         addBudget,
         updateBudget,
         deleteBudget,
-        copyBudgetsToYear
     } = useAppContext();
 
     const navigate = useNavigate();
@@ -26,7 +25,7 @@ const BudgetSettings: React.FC = () => {
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState<'add' | 'edit' | 'copy'>('add');
+    const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
     const [formCategoryId, setFormCategoryId] = useState('');
     const [formSubcategoryId, setFormSubcategoryId] = useState('');
@@ -41,23 +40,24 @@ const BudgetSettings: React.FC = () => {
         onConfirm: () => { }
     });
 
-    // 獲取當前年度的可用年度列表（當前年度 ± 2年）
-    const availableYears = useMemo(() => {
-        const years = new Set<number>();
-        budgets.forEach(b => years.add(b.year));
-        // 至少包含當前年度和前後各一年
-        for (let y = currentYear - 1; y <= currentYear + 2; y++) {
-            years.add(y);
-        }
-        return Array.from(years).sort((a, b) => a - b);
-    }, [budgets, currentYear]);
-
     // 獲取當前年度和標籤的分類
     const currentTypeCategories = useMemo(() => {
         return categories
             .filter(c => c.type === activeTab && !c.isHidden)
             .sort((a, b) => a.order - b.order);
     }, [categories, activeTab]);
+
+    const totalCurrentTabBudget = useMemo(() => {
+        const visibleCategoryIds = new Set(currentTypeCategories.map(c => c.id));
+        return budgets
+            .filter(b =>
+                b.year === selectedYear &&
+                b.subcategoryId &&
+                b.categoryId &&
+                visibleCategoryIds.has(b.categoryId)
+            )
+            .reduce((sum, b) => sum + b.amount, 0);
+    }, [budgets, currentTypeCategories, selectedYear]);
 
     // 獲取指定分類和年度的預算
     const getBudget = (categoryId: string, subcategoryId?: string): Budget | undefined => {
@@ -105,12 +105,6 @@ const BudgetSettings: React.FC = () => {
         }
 
         setEditingBudget(budget);
-        setIsModalOpen(true);
-    };
-
-    // 打開複製年度預算 Modal
-    const openCopyYearModal = () => {
-        setModalMode('copy');
         setIsModalOpen(true);
     };
 
@@ -180,34 +174,6 @@ const BudgetSettings: React.FC = () => {
         setIsConfirmOpen(true);
     };
 
-    // 複製年度預算
-    const handleCopyYear = (fromYear: number) => {
-        if (selectedYear === fromYear) {
-            alert('目標年度不能與來源年度相同');
-            return;
-        }
-
-        // 檢查目標年度是否已有預算
-        const existingBudgets = budgets.filter(b => b.year === selectedYear);
-        if (existingBudgets.length > 0) {
-            setConfirmConfig({
-                title: '覆蓋預算',
-                message: `${selectedYear} 年已有 ${existingBudgets.length} 筆預算，確定要覆蓋嗎？`,
-                onConfirm: () => {
-                    // 刪除現有預算
-                    existingBudgets.forEach(b => deleteBudget(b.id));
-                    copyBudgetsToYear(fromYear, selectedYear);
-                    setIsModalOpen(false);
-                }
-            });
-            setIsConfirmOpen(true);
-            return;
-        }
-
-        copyBudgetsToYear(fromYear, selectedYear);
-        setIsModalOpen(false);
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -249,16 +215,15 @@ const BudgetSettings: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Right: Copy Button (Lightning Icon) */}
-                <button
-                    onClick={openCopyYearModal}
-                    className="absolute right-4 p-2 text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 rounded-full transition-all"
-                    title="複製其他年度預算"
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                    </svg>
-                </button>
+                {/* Right: Annual Budget Total for Current Tab */}
+                <div className="absolute right-4 text-right leading-tight">
+                    <div className="text-[10px] text-gray-400">
+                        {activeTab === 'expense' ? '費用總額' : '收入總額'}
+                    </div>
+                    <div className="text-sm font-bold text-green-600">
+                        ${totalCurrentTabBudget.toLocaleString()}
+                    </div>
+                </div>
             </div>
 
             {/* Tab Selector */}
@@ -425,157 +390,124 @@ const BudgetSettings: React.FC = () => {
                             className="bg-white rounded-2xl p-6 w-full max-w-sm"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {modalMode === 'copy' ? (
-                                <>
-                                    <h3 className="text-lg font-bold mb-4">複製年度預算</h3>
-                                    <p className="text-sm text-gray-600 mb-4">
-                                        選擇要複製的來源年度：
-                                    </p>
-                                    <div className="space-y-2 mb-6">
-                                        {availableYears
-                                            .filter(y => y !== selectedYear)
-                                            .map(year => (
-                                                <button
-                                                    key={year}
-                                                    onClick={() => handleCopyYear(year)}
-                                                    className="w-full py-3 text-left px-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors"
-                                                >
-                                                    <span className="font-medium">{year} 年</span>
-                                                    <span className="text-sm text-gray-500 ml-2">
-                                                        ({budgets.filter(b => b.year === year).length} 筆預算)
-                                                    </span>
-                                                </button>
-                                            ))}
+                            <h3 className="text-lg font-bold mb-4">
+                                {modalMode === 'edit' ? '編輯預算' : '設定預算'}
+                            </h3>
+
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="text-xs text-gray-500 block mb-1">分類</label>
+                                    <div className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-700">
+                                        {categories.find(c => c.id === formCategoryId)?.name || '未選擇'}
                                     </div>
+                                </div>
+
+                                {formSubcategoryId && (
+                                    <div>
+                                        <label className="text-xs text-gray-500 block mb-1">子分類</label>
+                                        <div className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-700">
+                                            {subcategories.find(s => s.id === formSubcategoryId)?.name || '未選擇'}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+                                        <button
+                                            onClick={() => setBudgetInputMode('yearly')}
+                                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${budgetInputMode === 'yearly' ? 'bg-white shadow text-gray-900 border border-gray-100' : 'text-gray-500'
+                                                }`}
+                                        >
+                                            年度總額
+                                        </button>
+                                        <button
+                                            onClick={() => setBudgetInputMode('monthly')}
+                                            className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${budgetInputMode === 'monthly' ? 'bg-white shadow text-gray-900 border border-gray-100' : 'text-gray-500'
+                                                }`}
+                                        >
+                                            每月細項
+                                        </button>
+                                    </div>
+
+                                    {budgetInputMode === 'yearly' ? (
+                                        <div>
+                                            <label className="text-xs text-gray-500 block mb-1">年度預算金額</label>
+                                            <input
+                                                type="number"
+                                                value={formAmount}
+                                                onChange={(e) => setFormAmount(e.target.value)}
+                                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                placeholder="0"
+                                                autoFocus
+                                            />
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                平均每月：${Math.round((parseFloat(formAmount) || 0) / 12).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                                                <span className="text-xs text-blue-600">快速填寫</span>
+                                                <button
+                                                    onClick={() => setMonthlyInputs(Array(12).fill(monthlyInputs[0] || '0'))}
+                                                    className="text-xs bg-white border border-blue-200 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 transition-colors"
+                                                >
+                                                    以一月複製到全年
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-y-3 max-h-[300px] overflow-y-auto pr-2">
+                                                {monthlyInputs.map((val, idx) => (
+                                                    <div key={idx} className="flex items-center gap-3">
+                                                        <label className="text-sm text-gray-500 w-12 font-medium">{idx + 1} 月</label>
+                                                        <input
+                                                            type="number"
+                                                            value={val}
+                                                            onChange={e => {
+                                                                const newInputs = [...monthlyInputs];
+                                                                newInputs[idx] = e.target.value;
+                                                                setMonthlyInputs(newInputs);
+                                                            }}
+                                                            className="flex-1 px-3 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-2">
+                                                <span className="text-sm text-gray-500">年度總計</span>
+                                                <span className="text-lg font-bold text-blue-600 font-mono">
+                                                    ${monthlyInputs.reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toLocaleString()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                                {modalMode === 'edit' && (
                                     <button
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="w-full py-2 text-gray-600 bg-gray-100 rounded-lg"
+                                        onClick={handleDelete}
+                                        className="px-4 py-2 text-red-500 bg-red-50 rounded-lg"
                                     >
-                                        取消
+                                        刪除
                                     </button>
-                                </>
-                            ) : (
-                                <>
-                                    <h3 className="text-lg font-bold mb-4">
-                                        {modalMode === 'edit' ? '編輯預算' : '設定預算'}
-                                    </h3>
-
-                                    <div className="space-y-4 mb-6">
-                                        <div>
-                                            <label className="text-xs text-gray-500 block mb-1">分類</label>
-                                            <div className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-700">
-                                                {categories.find(c => c.id === formCategoryId)?.name || '未選擇'}
-                                            </div>
-                                        </div>
-
-                                        {formSubcategoryId && (
-                                            <div>
-                                                <label className="text-xs text-gray-500 block mb-1">子分類</label>
-                                                <div className="w-full px-4 py-2 border rounded-lg bg-gray-50 text-gray-700">
-                                                    {subcategories.find(s => s.id === formSubcategoryId)?.name || '未選擇'}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
-                                                <button
-                                                    onClick={() => setBudgetInputMode('yearly')}
-                                                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${budgetInputMode === 'yearly' ? 'bg-white shadow text-gray-900 border border-gray-100' : 'text-gray-500'
-                                                        }`}
-                                                >
-                                                    年度總額
-                                                </button>
-                                                <button
-                                                    onClick={() => setBudgetInputMode('monthly')}
-                                                    className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${budgetInputMode === 'monthly' ? 'bg-white shadow text-gray-900 border border-gray-100' : 'text-gray-500'
-                                                        }`}
-                                                >
-                                                    每月細項
-                                                </button>
-                                            </div>
-
-                                            {budgetInputMode === 'yearly' ? (
-                                                <div>
-                                                    <label className="text-xs text-gray-500 block mb-1">年度預算金額</label>
-                                                    <input
-                                                        type="number"
-                                                        value={formAmount}
-                                                        onChange={(e) => setFormAmount(e.target.value)}
-                                                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                                        placeholder="0"
-                                                        autoFocus
-                                                    />
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        平均每月：${Math.round((parseFloat(formAmount) || 0) / 12).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-                                                        <span className="text-xs text-blue-600">快速填寫</span>
-                                                        <button
-                                                            onClick={() => setMonthlyInputs(Array(12).fill(monthlyInputs[0] || '0'))}
-                                                            className="text-xs bg-white border border-blue-200 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 transition-colors"
-                                                        >
-                                                            以一月複製到全年
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 gap-y-3 max-h-[300px] overflow-y-auto pr-2">
-                                                        {monthlyInputs.map((val, idx) => (
-                                                            <div key={idx} className="flex items-center gap-3">
-                                                                <label className="text-sm text-gray-500 w-12 font-medium">{idx + 1} 月</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={val}
-                                                                    onChange={e => {
-                                                                        const newInputs = [...monthlyInputs];
-                                                                        newInputs[idx] = e.target.value;
-                                                                        setMonthlyInputs(newInputs);
-                                                                    }}
-                                                                    className="flex-1 px-3 py-2 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                                                    placeholder="0"
-                                                                />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-2">
-                                                        <span className="text-sm text-gray-500">年度總計</span>
-                                                        <span className="text-lg font-bold text-blue-600 font-mono">
-                                                            ${monthlyInputs.reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        {modalMode === 'edit' && (
-                                            <button
-                                                onClick={handleDelete}
-                                                className="px-4 py-2 text-red-500 bg-red-50 rounded-lg"
-                                            >
-                                                刪除
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => setIsModalOpen(false)}
-                                            className="flex-1 py-2 text-gray-600 bg-gray-100 rounded-lg"
-                                        >
-                                            取消
-                                        </button>
-                                        <button
-                                            onClick={handleSave}
-                                            className="flex-1 py-2 text-white bg-blue-500 rounded-lg"
-                                        >
-                                            儲存
-                                        </button>
-                                    </div>
-                                </>
-                            )}
+                                )}
+                                <button
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="flex-1 py-2 text-gray-600 bg-gray-100 rounded-lg"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="flex-1 py-2 text-white bg-blue-500 rounded-lg"
+                                >
+                                    儲存
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

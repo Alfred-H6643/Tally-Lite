@@ -689,6 +689,35 @@ const Report: React.FC = () => {
         return data.sort((a, b) => b.value - a.value);
     }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions, getYTDBalance, getCurrentPeriodExpense]);
 
+    // Detail list data: same as chart in budget mode; in expense/income mode, also include
+    // visible categories with zero spending so users can see "0 spent" rows.
+    const detailListData = useMemo(() => {
+        if (transactionType === 'budget') return chartData;
+
+        const existingIds = new Set(chartData.map(item => item.categoryId));
+        const result = [...chartData];
+        categories.forEach(c => {
+            if (c.type !== transactionType) return;
+            if (c.isHidden) return;
+            if (existingIds.has(c.id)) return;
+            result.push({
+                categoryId: c.id,
+                name: c.name,
+                value: 0,
+                color: c.color,
+                icon: c.icon,
+                budget: getCategoryBudget(c.id),
+                ytdBalance: getYTDBalance(c.id),
+            });
+        });
+        return result.sort((a, b) => {
+            if (b.value !== a.value) return b.value - a.value;
+            const oa = categoryMap.get(a.categoryId)?.order ?? 0;
+            const ob = categoryMap.get(b.categoryId)?.order ?? 0;
+            return oa - ob;
+        });
+    }, [chartData, categories, transactionType, getCategoryBudget, getYTDBalance, categoryMap]);
+
     // Calculate total expenses for percentage
     const totalExpenses = useMemo(() => {
         return chartData.reduce((sum, item) => sum + item.value, 0);
@@ -754,12 +783,28 @@ const Report: React.FC = () => {
                 }
             });
 
+            // Include visible subcategories with no transactions so they show as 0
+            subcategories
+                .filter(s => s.parentId === categoryId && !s.isHidden)
+                .forEach(s => {
+                    if (!subcategoryMapData.has(s.id)) {
+                        subcategoryMapData.set(s.id, {
+                            subcategory: s,
+                            total: 0,
+                            subTransactions: []
+                        });
+                    }
+                });
+
             map.set(categoryId, Array.from(subcategoryMapData.values())
                 .map(item => ({
                     ...item,
                     ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null
                 }))
-                .sort((a: any, b: any) => b.total - a.total));
+                .sort((a: any, b: any) => {
+                    if (b.total !== a.total) return b.total - a.total;
+                    return (a.subcategory.order ?? 0) - (b.subcategory.order ?? 0);
+                }));
         });
         return map;
     }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget, viewMode, getYTDBalance, getCurrentPeriodExpense]);
@@ -1050,7 +1095,7 @@ const Report: React.FC = () => {
                             <h3 className="font-bold text-gray-700">Details</h3>
                             <span className="text-xs text-gray-500 font-medium">幣別：TWD</span>
                         </div>
-                        {chartData.map((item) => (
+                        {detailListData.map((item) => (
                             <CategoryReportItem
                                 key={item.categoryId}
                                 item={item}

@@ -342,9 +342,18 @@ const CategoryReportItem = React.memo(({
                     </div>
                     <div className="text-right">
                         {transactionType === 'budget' && item.currentPeriodExpense !== undefined && budget !== null ? (
-                            <div className={`font-bold ${budget - item.currentPeriodExpense >= 0 ? 'text-gray-800' : 'text-red-500'}`}>
-                                ${(budget - item.currentPeriodExpense).toLocaleString()}
-                            </div>
+                            (() => {
+                                const rem = budget - item.currentPeriodExpense;
+                                const pct = Math.round((rem / budget) * 100);
+                                return (
+                                    <div className={`font-bold ${rem >= 0 ? 'text-gray-800' : 'text-red-500'}`}>
+                                        <div className="text-xs font-normal text-gray-500 mb-0.5">
+                                            餘額 ({pct}%)
+                                        </div>
+                                        ${rem.toLocaleString()}
+                                    </div>
+                                );
+                            })()
                         ) : (
                             <div className="font-bold text-gray-800">${item.value.toLocaleString()}</div>
                         )}

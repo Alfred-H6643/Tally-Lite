@@ -6,6 +6,33 @@ import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion
 import { useNavigate } from 'react-router-dom';
 import ConfirmDialog from './ConfirmDialog';
 
+// 單獨的 SubcategoryReorderItem 組件以正確使用 useDragControls
+const SubcategoryReorderItem: React.FC<{ sub: Subcategory }> = ({ sub }) => {
+    const dragControls = useDragControls();
+    return (
+        <Reorder.Item
+            key={sub.id}
+            value={sub}
+            dragListener={false}
+            dragControls={dragControls}
+            className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+        >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span
+                    className="text-gray-400 text-lg select-none cursor-grab active:cursor-grabbing touch-none p-1"
+                    onPointerDown={(e) => dragControls.start(e)}
+                >☰</span>
+                <span className="text-sm font-bold text-gray-700 truncate">
+                    {sub.name}
+                </span>
+            </div>
+            {sub.name === '未分類' && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded font-bold uppercase tracking-tighter shrink-0 ml-2">預設</span>
+            )}
+        </Reorder.Item>
+    );
+};
+
 // 單獨的 CategoryItem 組件以正確使用 useDragControls
 interface CategoryItemProps {
     category: Category;
@@ -464,21 +491,7 @@ const CategorySettings: React.FC = () => {
                                                     className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar"
                                                 >
                                                     {localSubcategories.map((sub) => (
-                                                        <Reorder.Item
-                                                            key={sub.id}
-                                                            value={sub}
-                                                            className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 shadow-sm overflow-hidden"
-                                                        >
-                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                                <span className="text-gray-400 text-lg select-none">☰</span>
-                                                                <span className="text-sm font-bold text-gray-700 truncate">
-                                                                    {sub.name}
-                                                                </span>
-                                                            </div>
-                                                            {sub.name === '未分類' && (
-                                                                <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded font-bold uppercase tracking-tighter shrink-0 ml-2">預設</span>
-                                                            )}
-                                                        </Reorder.Item>
+                                                        <SubcategoryReorderItem key={sub.id} sub={sub} />
                                                     ))}
                                                 </Reorder.Group>
                                                 {localSubcategories.length === 0 && (

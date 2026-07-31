@@ -75,8 +75,12 @@ export interface Budget {
     year: number;                     // 預算年度 (e.g., 2025)
     categoryId?: string;              // 分類 ID（如果是分類預算）
     subcategoryId?: string;           // 子分類 ID（如果是子分類預算）
-    amount: number;                   // 年度預算金額
-    monthlyAmounts?: number[];        // 每月預算 (12 個月)
+    amount: number;                   // 年度預算金額（永遠等於全年總額）
+    /**
+     * 每月預算 (12 個月)。只有使用者選擇「每月細項」時才有值；
+     * 選「年度總額」時寫入 null 清除，讀取端一律退回 amount / 12。
+     */
+    monthlyAmounts?: number[] | null;
     createdAt: Date;
     updatedAt: Date;
 }

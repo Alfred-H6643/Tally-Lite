@@ -6,6 +6,7 @@ import { useFirestoreCollection } from '../hooks/useFirestore';
 import { db } from '../services/firebase';
 import { doc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { mockDb } from '../services/mockDatabase';
+import { getMonthlyBudget } from '../utils/budget';
 
 export interface UserProfile {
     displayName: string;
@@ -380,10 +381,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         return subBudgets.reduce((sum, b) => {
             if (monthIndex !== undefined) {
-                if (Array.isArray(b.monthlyAmounts) && b.monthlyAmounts.length === 12) {
-                    return sum + b.monthlyAmounts[monthIndex];
-                }
-                return sum + Math.round(b.amount / 12);
+                return sum + getMonthlyBudget(b, monthIndex);
             }
             return sum + b.amount;
         }, 0);
@@ -396,10 +394,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         );
         if (!budget) return 0;
         if (monthIndex !== undefined) {
-            if (Array.isArray(budget.monthlyAmounts) && budget.monthlyAmounts.length === 12) {
-                return budget.monthlyAmounts[monthIndex];
-            }
-            return Math.round(budget.amount / 12);
+            return getMonthlyBudget(budget, monthIndex);
         }
         return budget.amount;
     }, [budgets]);

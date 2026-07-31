@@ -72,7 +72,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       totalYearlyBudget += amount;
 
       // 計算當月預算
-      const hasMonthlyAmounts = Array.isArray(d.monthlyAmounts) && d.monthlyAmounts.length === 12;
+      // monthlyAmounts 只是 amount 的細分，加總對不上就是舊版編輯器留下的殘值，
+      // 一律忽略並退回平均分攤（與前端 src/utils/budget.ts 的判斷一致）。
+      const monthlyAmounts: number[] | null =
+        Array.isArray(d.monthlyAmounts) && d.monthlyAmounts.length === 12
+          ? d.monthlyAmounts
+          : null;
+      const monthlySum = monthlyAmounts
+        ? monthlyAmounts.reduce((sum, val) => sum + (val || 0), 0)
+        : 0;
+      const hasMonthlyAmounts = monthlyAmounts !== null && Math.round(monthlySum) === Math.round(amount);
       const rawMonthly = hasMonthlyAmounts ? d.monthlyAmounts[monthIndex] : null;
       const monthlyBudget = typeof rawMonthly === 'number' && !isNaN(rawMonthly)
         ? rawMonthly

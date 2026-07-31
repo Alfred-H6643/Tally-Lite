@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import MonthPicker from './MonthPicker';
-import { convertAmountToTWD } from '../utils/currency';
+import { convertAmountToTWD, formatAmount } from '../utils/currency';
+import { compareTransactionsDesc } from '../utils/transactionOrder';
 
 type ViewMode = 'month' | 'year' | 'custom';
 type TransactionType = 'expense' | 'income' | 'budget';
@@ -139,7 +140,7 @@ export const TransactionReportItem = React.memo(({ transaction, projectTags, onE
                 )}
             </div>
             <div className="text-right ml-2">
-                {transaction.currency && transaction.currency !== 'TWD' ? `${transaction.currency} ` : ''}${transaction.amount.toLocaleString()}
+                {formatAmount(transaction.amount, transaction.currency)}
                 {transaction.currency && transaction.currency !== 'TWD' && (
                     <div className="text-[10px] text-gray-400">
                         ≈ ${convertAmountToTWD(transaction.amount, transaction.currency).toLocaleString()}
@@ -796,6 +797,12 @@ const Report: React.FC = () => {
                         subTransactions: [t]
                     });
                 }
+            });
+
+            // Order the detail list: newest day first, then newest entry within the day.
+            // Firestore only orders by `date`, which is day-granular — see compareTransactionsDesc.
+            subcategoryMapData.forEach(item => {
+                item.subTransactions.sort(compareTransactionsDesc);
             });
 
             // Include visible subcategories with no transactions so they show as 0

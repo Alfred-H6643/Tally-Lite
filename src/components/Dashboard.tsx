@@ -6,7 +6,8 @@ import type { Transaction } from '../types';
 import { motion } from 'framer-motion';
 
 import MonthPicker from './MonthPicker';
-import { convertAmountToTWD } from '../utils/currency';
+import { convertAmountToTWD, formatAmount } from '../utils/currency';
+import { createdAtOrder } from '../utils/transactionOrder';
 
 // --- Memoized Components ---
 
@@ -112,8 +113,15 @@ const TransactionItem = React.memo(({ t, category, subcategory, projectTag, isLa
                 </div>
 
                 {/* Amount */}
-                <div className={`font-bold text-base ml-2 ${isIncome ? 'text-green-500' : 'text-[#E3B873]'}`}>
-                    {isIncome ? '+' : ''}${t.amount.toLocaleString()}
+                <div className={`ml-2 shrink-0 text-right ${isIncome ? 'text-green-500' : 'text-[#E3B873]'}`}>
+                    <div className="font-bold text-base">
+                        {isIncome ? '+' : ''}{formatAmount(t.amount, t.currency)}
+                    </div>
+                    {t.currency && t.currency !== 'TWD' && (
+                        <div className="text-[10px] text-gray-400 font-normal">
+                            ≈ ${convertAmountToTWD(t.amount, t.currency).toLocaleString()}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -265,6 +273,11 @@ const Dashboard: React.FC = () => {
                 iter.setDate(iter.getDate() + 1);
             }
         }
+
+        // 3. Sort within each day by creation time (newest first) — see createdAtOrder.
+        Object.values(groups).forEach(group => {
+            group.transactions.sort((a, b) => createdAtOrder(b) - createdAtOrder(a));
+        });
 
         // Sort dates descending
         return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));

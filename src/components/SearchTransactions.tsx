@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
 import { TransactionReportItem } from './Report';
+import { compareTransactionsDesc } from '../utils/transactionOrder';
 
 const SearchTransactions: React.FC = () => {
     const navigate = useNavigate();
@@ -69,7 +70,7 @@ const SearchTransactions: React.FC = () => {
                 if (!isWithinInterval(tDate, { start: yearRange.start, end: yearRange.end })) return false;
                 return t.note.toLowerCase().includes(needle);
             })
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .sort(compareTransactionsDesc);
     }, [transactions, committedKeyword, yearRange]);
 
     return (

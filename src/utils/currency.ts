@@ -41,3 +41,16 @@ export const convertAmountToTWD = (amount: number, currency: string): number => 
 export const formatCurrency = (amount: number, currency: string = 'TWD'): string => {
     return new Intl.NumberFormat('zh-TW', { style: 'currency', currency }).format(amount);
 };
+
+/**
+ * Formats a transaction amount for display.
+ * TWD keeps the plain `$` prefix; other currencies are prefixed with their code
+ * so the original currency is visible at a glance (e.g. `JPY 1,500`).
+ * @param amount The value in the transaction's own currency
+ * @param currency The currency code (falsy is treated as TWD)
+ */
+export const formatAmount = (amount: number, currency?: string): string => {
+    const formatted = amount.toLocaleString();
+    if (!currency || currency === 'TWD') return `$${formatted}`;
+    return `${currency} ${formatted}`;
+};

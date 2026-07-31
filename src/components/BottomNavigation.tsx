@@ -56,8 +56,10 @@ const BottomNavigation: React.FC<BottomNavigationProps> = React.memo(({ onAddCli
             {/* 報表 */}
             <NavButton label="報表" isActive={pathname.startsWith('/report')} onClick={() => navigate('/report')}>
                 <svg {...iconProps}>
-                    <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-                    <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                    <path d="M4 4v16" />
+                    <line x1="8" y1="8" x2="17" y2="8" />
+                    <line x1="8" y1="13" x2="21" y2="13" />
+                    <line x1="8" y1="18" x2="13" y2="18" />
                 </svg>
             </NavButton>
 

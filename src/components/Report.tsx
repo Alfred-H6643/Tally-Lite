@@ -12,6 +12,19 @@ import { compareTransactionsDesc } from '../utils/transactionOrder';
 type ViewMode = 'month' | 'year' | 'custom';
 type TransactionType = 'expense' | 'income' | 'budget';
 
+/**
+ * 預算 tab 月視角的「年度進度」資料。
+ *
+ * 費用 tab 已經回答「這個月花多少、跟本月預算差多少」，所以預算 tab 改為回答
+ * 「整年走到現在，進度超前還是落後」——這是費用 tab 給不了的觀點。
+ */
+interface YTDProgress {
+    annualBudget: number;  // 全年預算
+    expected: number;      // 到本月為止「應該」花掉的累計預算
+    actual: number;        // 到本月為止實際花掉的金額
+    balance: number;       // expected - actual，正數為結餘、負數為超支
+}
+
 // TypeScript interfaces for chart components
 interface ChartDataItem {
     categoryId: string;
@@ -20,7 +33,7 @@ interface ChartDataItem {
     color: string;
     icon: string;
     budget: number | null;
-    ytdBalance?: number | null;
+    ytdProgress?: YTDProgress | null;
     currentPeriodExpense?: number;
 }
 
@@ -96,6 +109,54 @@ const CustomBarLabel: React.FC<CustomBarLabelProps> = ({ x = 0, y = 0, width = 0
     );
 };
 
+/**
+ * 年度預算進度條：長條為 YTD 實際花費佔全年預算的比例，深色直線標出到本月為止
+ * 「應該」花到的位置。花超過標記代表進度超前（花太快），長條轉紅。
+ */
+const YTDProgressBar: React.FC<{ progress: YTDProgress; compact?: boolean }> = ({ progress, compact }) => {
+    const { annualBudget, expected, actual, balance } = progress;
+
+    const toPercent = (value: number) =>
+        annualBudget > 0 ? Math.max(0, Math.min(100, (value / annualBudget) * 100)) : 0;
+
+    const actualPercent = toPercent(actual);
+    const expectedPercent = toPercent(expected);
+    const isOverPace = balance < 0;
+
+    return (
+        <div className={compact ? 'mt-1.5' : 'mt-2'}>
+            <div className={`relative w-full bg-gray-100 rounded-full ${compact ? 'h-1.5' : 'h-2.5'}`}>
+                <div
+                    className={`absolute inset-y-0 left-0 rounded-full transition-all ${isOverPace ? 'bg-red-500' : 'bg-blue-500'}`}
+                    style={{ width: `${actualPercent}%` }}
+                />
+                {/* 應花進度標記 */}
+                <div
+                    className="absolute -inset-y-0.5 w-0.5 bg-gray-600 rounded-full"
+                    style={{ left: `${expectedPercent}%` }}
+                    title={`到本月為止應花 $${Math.round(expected).toLocaleString()}`}
+                />
+            </div>
+            <div className={`text-gray-400 mt-1 ${compact ? 'text-[10px]' : 'text-[11px]'}`}>
+                YTD 預計 ${Math.round(expected).toLocaleString()}
+                ，實際 ${Math.round(actual).toLocaleString()}
+                <span className={isOverPace ? 'text-red-500' : 'text-green-500'}>
+                    ，差距 ${Math.abs(Math.round(balance)).toLocaleString()}
+                    {expected > 0 && ` (${Math.round((actual / expected) * 100)}%)`}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * 子分類的上下順序沿用分類設定頁的 Subcategory.order，而非金額大小。
+ */
+const bySubcategoryOrder = (
+    a: { subcategory: { order?: number } },
+    b: { subcategory: { order?: number } }
+) => (a.subcategory.order ?? 0) - (b.subcategory.order ?? 0);
+
 // --- Memoized Report List Components ---
 
 export interface TransactionReportItemProps {
@@ -161,7 +222,7 @@ interface SubcategoryReportItemProps {
     subTransactions: any[];
     projectTags: any[];
     onEditClick: (t: any) => void;
-    ytdBalance: number | null;
+    ytdProgress: YTDProgress | null;
     currentPeriodExpense?: number;
 }
 
@@ -175,11 +236,14 @@ const SubcategoryReportItem = React.memo(({
     subTransactions,
     projectTags,
     onEditClick,
-    ytdBalance,
+    ytdProgress,
     currentPeriodExpense
 }: SubcategoryReportItemProps) => {
     const subRemaining = subBudget !== null ? subBudget - total : null;
     const usagePercent = subBudget ? Math.round((total / subBudget) * 100) : 0;
+
+    // 分類列本身顯示的是「本期預算/剩餘」；YTD 只在月視角以進度條呈現。
+    const showYTDBar = transactionType === 'budget' && ytdProgress !== null;
 
     const handleToggle = React.useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
@@ -190,56 +254,59 @@ const SubcategoryReportItem = React.memo(({
         <div className="mb-2 last:mb-0">
             {/* Subcategory Header */}
             <div
-                className="flex items-center justify-between p-3 bg-white rounded-lg active:bg-gray-50 cursor-pointer transition-colors"
+                className="p-3 bg-white rounded-lg active:bg-gray-50 cursor-pointer transition-colors"
                 onClick={handleToggle}
             >
-                <div className="flex items-center gap-2">
-                    {/* Hide arrow in budget mode */}
-                    {transactionType !== 'budget' && (
-                        <span className="text-xs text-gray-400">
-                            {isExpanded ? '▼' : '▶'}
-                        </span>
-                    )}
-                    <div>
-                        <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
-                        {subBudget !== null && (
-                            <div className="text-xs text-gray-400 mt-0.5">
-                                預算: ${subBudget.toLocaleString()}
-                                {/* Hide 100% in budget mode */}
-                                {transactionType !== 'budget' && (
-                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
-                                        ? 'bg-red-100 text-red-600'
-                                        : usagePercent === 100
-                                            ? 'bg-green-100 text-green-600'
-                                            : 'bg-gray-100 text-gray-500'
-                                        }`}>
-                                        {usagePercent}%
-                                    </span>
-                                )}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        {/* Hide arrow in budget mode */}
+                        {transactionType !== 'budget' && (
+                            <span className="text-xs text-gray-400">
+                                {isExpanded ? '▼' : '▶'}
+                            </span>
+                        )}
+                        <div>
+                            <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
+                            {subBudget !== null && (
+                                <div className="text-xs text-gray-400 mt-0.5">
+                                    預算: ${subBudget.toLocaleString()}
+                                    {/* Hide 100% in budget mode */}
+                                    {transactionType !== 'budget' && (
+                                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                            ? 'bg-red-100 text-red-600'
+                                            : usagePercent === 100
+                                                ? 'bg-green-100 text-green-600'
+                                                : 'bg-gray-100 text-gray-500'
+                                            }`}>
+                                            {usagePercent}%
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        {transactionType === 'budget' && currentPeriodExpense !== undefined && subBudget !== null ? (
+                            <>
+                                <div className={`text-[10px] font-medium ${subBudget - currentPeriodExpense >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {subBudget - currentPeriodExpense >= 0 ? '剩餘' : '超支'}
+                                </div>
+                                <div className="text-sm font-semibold text-gray-700">
+                                    ${Math.abs(subBudget - currentPeriodExpense).toLocaleString()}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-sm font-semibold text-gray-700">${total.toLocaleString()}</div>
+                        )}
+                        {subRemaining !== null && transactionType !== 'budget' && (
+                            <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
                             </div>
                         )}
                     </div>
                 </div>
-                <div className="text-right">
-                    {transactionType === 'budget' && currentPeriodExpense !== undefined && subBudget !== null ? (
-                        <div className={`text-sm font-semibold ${subBudget - currentPeriodExpense >= 0 ? 'text-gray-700' : 'text-red-500'}`}>
-                            ${(subBudget - currentPeriodExpense).toLocaleString()}
-                        </div>
-                    ) : (
-                        <div className="text-sm font-semibold text-gray-700">${total.toLocaleString()}</div>
-                    )}
-                    {subRemaining !== null && transactionType !== 'budget' && (
-                        <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
-                        </div>
-                    )}
-                    {/* YTD display for budget mode */}
-                    {ytdBalance !== null && transactionType === 'budget' && (
-                        <div className={`text-xs ${ytdBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {ytdBalance >= 0 ? 'YTD 結餘' : 'YTD 超支'} ${Math.abs(ytdBalance).toLocaleString()}
-                        </div>
-                    )}
-                </div>
+
+                {showYTDBar && <YTDProgressBar progress={ytdProgress} compact />}
             </div>
 
             {/* Transactions - Hide in Budget Mode */}
@@ -278,7 +345,7 @@ interface CategoryReportItemProps {
     toggleSubcategory: (id: string) => void;
     projectTags: any[];
     onEditClick: (t?: any, date?: Date) => void;
-    ytdBalance: number | null;
+    ytdProgress: YTDProgress | null;
 }
 
 const CategoryReportItem = React.memo(({
@@ -292,13 +359,16 @@ const CategoryReportItem = React.memo(({
     toggleSubcategory,
     projectTags,
     onEditClick,
-    ytdBalance
+    ytdProgress
 }: CategoryReportItemProps) => {
     const budget = item.budget;
     const remaining = budget !== null ? budget - item.value : null;
 
     const percent = budget ? Math.min(100, (item.value / budget) * 100) : 0;
     const usagePercent = budget ? Math.round((item.value / budget) * 100) : 0;
+
+    // 分類列本身顯示的是「本期預算/剩餘」；YTD 只在月視角以進度條呈現。
+    const showYTDBar = transactionType === 'budget' && ytdProgress !== null;
 
     const handleToggle = useCallback(() => {
         onToggle(item.categoryId);
@@ -345,14 +415,16 @@ const CategoryReportItem = React.memo(({
                         {transactionType === 'budget' && item.currentPeriodExpense !== undefined && budget !== null ? (
                             (() => {
                                 const rem = budget - item.currentPeriodExpense;
-                                const pct = Math.round((rem / budget) * 100);
                                 return (
-                                    <div className={`font-bold ${rem >= 0 ? 'text-gray-800' : 'text-red-500'}`}>
-                                        <div className="text-xs font-normal text-gray-500 mb-0.5">
-                                            餘額 ({pct}%)
+                                    <>
+                                        {/* 與費用 tab 一致：主要數字固定黑色，由標籤負責綠(剩餘)/紅(超支) */}
+                                        <div className={`text-xs font-medium mb-0.5 ${rem >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                            {rem >= 0 ? '剩餘' : '超支'}
                                         </div>
-                                        ${rem.toLocaleString()}
-                                    </div>
+                                        <div className="font-bold text-gray-800">
+                                            ${Math.abs(rem).toLocaleString()}
+                                        </div>
+                                    </>
                                 );
                             })()
                         ) : (
@@ -363,14 +435,9 @@ const CategoryReportItem = React.memo(({
                                 {remaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(remaining).toLocaleString()}
                             </div>
                         )}
-                        {/* YTD display for budget mode */}
-                        {ytdBalance !== null && transactionType === 'budget' && (
-                            <div className={`text-xs font-medium ${ytdBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {ytdBalance >= 0 ? 'YTD 結餘' : 'YTD 超支'} ${Math.abs(ytdBalance).toLocaleString()}
-                            </div>
-                        )}
                     </div>
                 </div>
+                {showYTDBar && <YTDProgressBar progress={ytdProgress} />}
                 {budget !== null && transactionType !== 'budget' && (
                     <div className="w-full bg-gray-100 rounded-full h-2 mt-2 overflow-hidden">
                         <div
@@ -403,7 +470,7 @@ const CategoryReportItem = React.memo(({
                                     transactionType={transactionType}
                                     subTransactions={subTransactions}
                                     projectTags={projectTags}
-                                    ytdBalance={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.ytdBalance || null}
+                                    ytdProgress={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.ytdProgress || null}
                                     currentPeriodExpense={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.currentPeriodExpense}
                                     onEditClick={onEditClick}
                                 />
@@ -455,6 +522,16 @@ const Report: React.FC = () => {
     }, [subcategories]);
 
     const closeDatePicker = useCallback(() => setIsDatePickerOpen(false), []);
+
+    /**
+     * 分類的上下順序沿用分類設定頁的 Category.order，而非金額大小，讓兩頁看到的
+     * 排列一致。圖表與明細清單共用同一個比較函式，不會各自排出不同順序。
+     */
+    const byCategoryOrder = useCallback(
+        (a: { categoryId: string }, b: { categoryId: string }) =>
+            (categoryMap.get(a.categoryId)?.order ?? 0) - (categoryMap.get(b.categoryId)?.order ?? 0),
+        [categoryMap]
+    );
 
     // Date Range Calculations - 使用 appliedCustomRange 而非 customRange
     const dateRange = useMemo(() => {
@@ -579,7 +656,7 @@ const Report: React.FC = () => {
         });
     }, [transactions, dateRange, transactionType, appliedProjectTags]);
 
-    const getYTDBalance = React.useCallback((categoryId?: string, subcategoryId?: string) => {
+    const getYTDProgress = React.useCallback((categoryId?: string, subcategoryId?: string): YTDProgress | null => {
         if (viewMode !== 'month' || transactionType !== 'budget') return null;
 
         const ytdStart = startOfYear(currentMonth);
@@ -623,7 +700,12 @@ const Report: React.FC = () => {
         });
 
         const totalSpent = ytdTransactions.reduce((sum, t) => sum + convertAmountToTWD(t.amount, t.currency || 'TWD'), 0);
-        return accumulatedBudget - totalSpent;
+        return {
+            annualBudget: fullYearBudget,
+            expected: accumulatedBudget,
+            actual: totalSpent,
+            balance: accumulatedBudget - totalSpent
+        };
     }, [viewMode, transactionType, currentMonth, dateRange.end, transactions, getBudgetForCategory, getBudgetForSubcategory, appliedProjectTags]);
 
     const getCurrentPeriodExpense = React.useCallback((categoryId?: string, subcategoryId?: string) => {
@@ -660,12 +742,12 @@ const Report: React.FC = () => {
                         color: category.color,
                         icon: category.icon,
                         budget: budget, // In budget mode, value IS the budget
-                        ytdBalance: getYTDBalance(category.id), // Calculate YTD for budget view
+                        ytdProgress: getYTDProgress(category.id), // 年度進度（僅預算+月視角有值）
                         currentPeriodExpense: getCurrentPeriodExpense(category.id)
                     });
                 }
             });
-            return data.sort((a, b) => b.value - a.value);
+            return data.sort(byCategoryOrder);
         }
 
         // Handle Expense/Income View
@@ -678,7 +760,7 @@ const Report: React.FC = () => {
             color: string;
             icon: string;
             budget: number | null;
-            ytdBalance: number | null;
+            ytdProgress: YTDProgress | null;
         }[] = [];
 
         relevantTransactions.forEach((t) => {
@@ -697,13 +779,13 @@ const Report: React.FC = () => {
                     color: category.color,
                     icon: category.icon,
                     budget: getCategoryBudget(category.id),
-                    ytdBalance: getYTDBalance(category.id)
+                    ytdProgress: getYTDProgress(category.id)
                 });
             }
         });
 
-        return data.sort((a, b) => b.value - a.value);
-    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions, getYTDBalance, getCurrentPeriodExpense]);
+        return data.sort(byCategoryOrder);
+    }, [transactions, categories, dateRange, transactionType, getCategoryBudget, getRelevantTransactions, getYTDProgress, getCurrentPeriodExpense, byCategoryOrder]);
 
     // Detail list data: same as chart in budget mode; in expense/income mode, also include
     // visible categories with zero spending so users can see "0 spent" rows.
@@ -723,16 +805,11 @@ const Report: React.FC = () => {
                 color: c.color,
                 icon: c.icon,
                 budget: getCategoryBudget(c.id),
-                ytdBalance: getYTDBalance(c.id),
+                ytdProgress: getYTDProgress(c.id),
             });
         });
-        return result.sort((a, b) => {
-            if (b.value !== a.value) return b.value - a.value;
-            const oa = categoryMap.get(a.categoryId)?.order ?? 0;
-            const ob = categoryMap.get(b.categoryId)?.order ?? 0;
-            return oa - ob;
-        });
-    }, [chartData, categories, transactionType, getCategoryBudget, getYTDBalance, categoryMap]);
+        return result.sort(byCategoryOrder);
+    }, [chartData, categories, transactionType, getCategoryBudget, getYTDProgress, byCategoryOrder]);
 
     // Calculate total expenses for percentage
     const totalExpenses = useMemo(() => {
@@ -758,12 +835,12 @@ const Report: React.FC = () => {
                         };
                     })
                     .filter(item => item.hasBudget)
-                    .sort((a, b) => b.total - a.total);
+                    .sort(bySubcategoryOrder);
 
                 // Add YTD balance uniformly with expense/income mode approach
                 map.set(categoryId, subs.map(item => ({
                     ...item,
-                    ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null,
+                    ytdProgress: viewMode === "month" ? getYTDProgress(categoryId, item.subcategory.id) : null,
                     currentPeriodExpense: getCurrentPeriodExpense(categoryId, item.subcategory.id)
                 })));
                 return;
@@ -821,15 +898,12 @@ const Report: React.FC = () => {
             map.set(categoryId, Array.from(subcategoryMapData.values())
                 .map(item => ({
                     ...item,
-                    ytdBalance: viewMode === 'month' ? getYTDBalance(categoryId, item.subcategory.id) : null
+                    ytdProgress: viewMode === "month" ? getYTDProgress(categoryId, item.subcategory.id) : null
                 }))
-                .sort((a: any, b: any) => {
-                    if (b.total !== a.total) return b.total - a.total;
-                    return (a.subcategory.order ?? 0) - (b.subcategory.order ?? 0);
-                }));
+                .sort(bySubcategoryOrder));
         });
         return map;
-    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget, viewMode, getYTDBalance, getCurrentPeriodExpense]);
+    }, [categories, subcategories, transactionType, getRelevantTransactions, getSubcategoryBudget, viewMode, getYTDProgress, getCurrentPeriodExpense]);
 
     const toggleCategory = React.useCallback((categoryId: string) => {
         setExpandedCategories(prev => {
@@ -1139,7 +1213,7 @@ const Report: React.FC = () => {
                                 getSubcategoryBudget={getSubcategoryBudget}
                                 expandedSubcategories={expandedSubcategories}
                                 toggleSubcategory={toggleSubcategory}
-                                ytdBalance={item.ytdBalance}
+                                ytdProgress={item.ytdProgress ?? null}
                                 projectTags={projectTags}
                                 onEditClick={openModal}
                             />

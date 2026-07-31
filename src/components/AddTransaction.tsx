@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import type { Transaction, TransactionType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 
 interface AddTransactionProps {
@@ -194,6 +195,8 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
         addSubcategory
     } = useAppContext();
 
+    const navigate = useNavigate();
+
     // Initialize State from initialTransaction or default
     const [amount, setAmount] = useState(initialTransaction?.amount?.toString() ?? '0');
 
@@ -335,6 +338,11 @@ const AddTransaction: React.FC<AddTransactionProps> = ({ onClose, initialTransac
                 await updateTransaction(transactionData);
             } else {
                 await addTransaction(transactionData);
+                // A brand-new entry always lands on the dashboard, wherever it was
+                // started from. Navigate before closing so the route swap happens
+                // behind the modal instead of flashing the previous page.
+                // Editing keeps you where you were.
+                navigate('/');
             }
             onClose();
         } catch (error) {

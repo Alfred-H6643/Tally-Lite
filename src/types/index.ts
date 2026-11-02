@@ -36,6 +36,11 @@ export interface Transaction {
     updatedAt: Date;
 }
 
+/** 使用者確認「這天沒有花費」的標記，文件 id 即日期（yyyy-MM-dd） */
+export interface NoSpendDay {
+    id: string;
+}
+
 export interface User {
     id: string;
     email: string;

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Category, Subcategory, Transaction, ProjectTag, Budget } from '../types';
+import type { Category, Subcategory, Transaction, ProjectTag, Budget, NoSpendDay } from '../types';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useFirestoreCollection } from '../hooks/useFirestore';
 import { db } from '../services/firebase';
@@ -21,6 +21,8 @@ interface AppContextType {
     subcategories: Subcategory[];
     transactions: Transaction[];
     projectTags: ProjectTag[];
+    noSpendDates: Set<string>;
+    setNoSpendDate: (dateStr: string, marked: boolean) => Promise<void>;
     budgets: Budget[];
     addTransaction: (transaction: Transaction) => void;
     deleteTransaction: (id: string) => void;
@@ -246,6 +248,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         userId ? `users/${userId}/budgets` : ''
     );
 
+    const {
+        data: noSpendDays,
+        set: setNoSpendDayFn,
+        remove: removeNoSpendDayFn
+    } = useFirestoreCollection<NoSpendDay>(
+        userId ? `users/${userId}/noSpendDays` : ''
+    );
+
+    const noSpendDates = React.useMemo(() => new Set(noSpendDays.map(d => d.id)), [noSpendDays]);
+
+    const setNoSpendDate = async (dateStr: string, marked: boolean) => {
+        if (marked) {
+            await setNoSpendDayFn(dateStr, {});
+        } else {
+            await removeNoSpendDayFn(dateStr);
+        }
+    };
+
     // Wrappers to match Context Interface
     const addTransaction = React.useCallback(async (transaction: Transaction) => {
         const { id, ...data } = transaction;
@@ -451,6 +471,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 subcategories,
                 transactions,
                 projectTags,
+                noSpendDates,
+                setNoSpendDate,
                 budgets,
 
                 isModalOpen,

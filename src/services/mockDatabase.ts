@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { initializeDefaultData } from '../utils/defaultCategories';
-import type { Category, Subcategory, Transaction, Budget, ProjectTag } from '../types';
+import type { Category, Subcategory, Transaction, Budget, ProjectTag, NoSpendDay } from '../types';
 
 // Mock Data Types
 type MockCollection = {
@@ -9,6 +9,7 @@ type MockCollection = {
     transactions: Transaction[];
     budgets: Budget[];
     projectTags: ProjectTag[];
+    noSpendDays: NoSpendDay[];
 };
 
 type CollectionName = keyof MockCollection;
@@ -24,7 +25,8 @@ class MockDatabase {
             subcategories: [],
             transactions: [],
             budgets: [],
-            projectTags: []
+            projectTags: [],
+            noSpendDays: []
         };
         this.listeners = new Map();
         this.reset();
@@ -56,7 +58,8 @@ class MockDatabase {
             subcategories: allSubcategories,
             transactions,
             budgets,
-            projectTags: []
+            projectTags: [],
+            noSpendDays: []
         };
 
         // Notify all listeners of the reset

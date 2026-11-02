@@ -16,10 +16,12 @@ interface DateHeaderProps {
     dateStr: string;
     income: number;
     expense: number;
+    isNoSpend: boolean;
     onAddClick: (dateStr: string) => void;
+    onToggleNoSpend: (dateStr: string, marked: boolean) => void;
 }
 
-const DateHeader = React.memo(({ dateStr, income, expense, onAddClick }: DateHeaderProps) => {
+const DateHeader = React.memo(({ dateStr, income, expense, isNoSpend, onAddClick, onToggleNoSpend }: DateHeaderProps) => {
     const handleAdd = useCallback(() => {
         onAddClick(dateStr);
     }, [onAddClick, dateStr]);
@@ -37,6 +39,20 @@ const DateHeader = React.memo(({ dateStr, income, expense, onAddClick }: DateHea
                     >
                         <span className="text-sm font-bold leading-none">+</span>
                     </button>
+                    {/* 支出為 0 的日子可標記「確認沒有花費」，用來和忘了記帳區分 */}
+                    {expense === 0 && (
+                        <button
+                            onClick={() => onToggleNoSpend(dateStr, !isNoSpend)}
+                            aria-label="標記這天沒有花費"
+                            aria-pressed={isNoSpend}
+                            className={`relative ml-1 w-5 h-5 flex items-center justify-center rounded-full border transition-colors before:absolute before:-inset-2 ${isNoSpend
+                                ? 'bg-gray-700 border-gray-700 text-white'
+                                : 'border-gray-300 text-gray-400'
+                                }`}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                    )}
                     {isToday(parseISO(dateStr)) && (
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-red-500">
                             <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.62.829.799 1.654 1.38 2.274 1.765a11.255 11.255 0 001.056.581c.01.002.016.002.016.002s.11.02.308-.066l.002-.001.006-.003.018-.008zM10 13a4 4 0 100-8 4 4 0 000 8z" clipRule="evenodd" />
@@ -136,6 +152,8 @@ const Dashboard: React.FC = () => {
         categories,
         subcategories,
         projectTags,
+        noSpendDates,
+        setNoSpendDate,
         userProfile,
         openModal,
         setTransactionFilter,
@@ -286,6 +304,15 @@ const Dashboard: React.FC = () => {
 
     const listRef = useRef<HTMLDivElement>(null);
 
+    // 標記過「沒有花費」的日子之後有了支出，標記就失效；之後支出刪掉也回到未確認
+    useEffect(() => {
+        groupedTransactions.forEach(([dateStr, group]) => {
+            if (group.expense > 0 && noSpendDates.has(dateStr)) {
+                setNoSpendDate(dateStr, false);
+            }
+        });
+    }, [groupedTransactions, noSpendDates, setNoSpendDate]);
+
     const datesWithRecords = useMemo(
         () => new Set(groupedTransactions.filter(([, group]) => group.transactions.length > 0).map(([dateStr]) => dateStr)),
         [groupedTransactions]
@@ -388,7 +415,9 @@ const Dashboard: React.FC = () => {
                                 dateStr={dateStr}
                                 income={income}
                                 expense={expense}
+                                isNoSpend={noSpendDates.has(dateStr)}
                                 onAddClick={handleAddForDate}
+                                onToggleNoSpend={setNoSpendDate}
                             />
 
                             <div className="">

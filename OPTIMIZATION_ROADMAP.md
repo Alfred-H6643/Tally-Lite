@@ -27,19 +27,17 @@ If the application begins to experience lag, long loading times, or causes devic
 - **Solution**: Implement "Virtual Scrolling" using libraries like `react-window` or `react-virtuoso`. Only render the rows currently visible on the screen.
 - **Impact**: Dramatically reduces memory usage and GPU load during scrolling.
 
-### Phase 2: Offline Persistence & Battery Optimization
-- **Problem**: Constant radio usage for real-time Firebase listeners can cause "phone heating."
-- **Solution**: 
-    - Enable [Firestore Offline Persistence](https://firebase.google.com/docs/firestore/manage-data/enable-offline).
-    - Switch from `onSnapshot` (real-time) to `getDoc/getDocs` (pull-on-demand) for historical data (years before the current one).
-- **Impact**: Reduces network overhead and improves battery life.
+### Phase 2: Offline Bookkeeping (Future Direction, Not Started)
+- **Problem**: The app can't open without a network, because there is no service worker. Firestore's device cache already keeps data and queues writes, but the app shell itself isn't available offline.
+- **Solution**: Add a service worker (e.g. `vite-plugin-pwa`) that caches the app shell.
+- **Impact**: Bookkeeping works in weak-signal or offline situations.
 
 ### Phase 3: Off-Main-Thread Calculations (Web Workers)
 - **Problem**: Precomputing complex subcategory data for the Report page can block the UI thread for several milliseconds.
 - **Solution**: Move data aggregation and currency conversion logic to a **Web Worker**. The UI sends the raw data, and the Worker returns the processed chart data.
 - **Impact**: Keeps the UI perfectly responsive even during heavy data processing.
 
-### Phase 4: Module Splitting & Code Organization
-- **Problem**: `Report.tsx` and `AddTransaction.tsx` are becoming large (600-900 lines), which can slightly slow down initial JS parsing.
-- **Solution**: Break down large components into a multi-file directory structure (e.g., `src/components/Report/Chart.tsx`, `src/components/Report/ItemList.tsx`).
-- **Impact**: Improves maintainability and allows for better React code-splitting if needed.
+### Phase 4: Code Cleanup (After the Current Feature Round, as Its Own Commit)
+- **Problem**: `Report.tsx` is over 1,000 lines, and `npm run lint` reports dozens of problems, mostly type annotations.
+- **Solution**: Break large components into smaller files and clear the lint errors, with no behavior change.
+- **Impact**: Improves maintainability. No user-visible change.

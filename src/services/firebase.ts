@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 // Firebase project configuration
 const firebaseConfig = {
@@ -19,6 +19,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 // const analytics = getAnalytics(app);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// 把資料快取在裝置上：重開 app 先顯示上次的資料，再於背景與伺服器同步
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 export default app;

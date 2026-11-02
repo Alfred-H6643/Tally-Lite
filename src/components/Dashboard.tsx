@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth, isToday } from 'date-fns';
@@ -6,6 +6,7 @@ import type { Transaction } from '../types';
 import { motion } from 'framer-motion';
 
 import MonthPicker from './MonthPicker';
+import DateScrubber from './DateScrubber';
 import { convertAmountToTWD, formatAmount } from '../utils/currency';
 import { createdAtOrder } from '../utils/transactionOrder';
 
@@ -283,6 +284,29 @@ const Dashboard: React.FC = () => {
         return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
     }, [monthlyTransactions, userProfile.showEmptyDays, currentMonth]);
 
+    const listRef = useRef<HTMLDivElement>(null);
+
+    const datesWithRecords = useMemo(
+        () => new Set(groupedTransactions.filter(([, group]) => group.transactions.length > 0).map(([dateStr]) => dateStr)),
+        [groupedTransactions]
+    );
+
+    // 跳到指定日期；該日不在清單上（未來日期或隱藏空白日）時跳到最接近的日期
+    const handleJumpToDate = useCallback((dateStr: string) => {
+        const list = listRef.current;
+        if (!list || groupedTransactions.length === 0) return;
+
+        const target = parseISO(dateStr).getTime();
+        const [closestDate] = groupedTransactions.reduce((closest, group) =>
+            Math.abs(parseISO(group[0]).getTime() - target) < Math.abs(parseISO(closest[0]).getTime() - target) ? group : closest
+        );
+
+        const element = document.getElementById(`date-${closestDate}`);
+        if (element) {
+            list.scrollTop += element.getBoundingClientRect().top - list.getBoundingClientRect().top;
+        }
+    }, [groupedTransactions]);
+
     const handleEdit = React.useCallback((t: Transaction) => {
         openModal(t);
     }, [openModal]);
@@ -348,47 +372,57 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Transaction List */}
-            <div className="flex-1 overflow-y-auto px-4 pb-24 pt-2">
-                {groupedTransactions.map(([dateStr, { transactions: trans, income, expense }]) => (
-                    <div key={dateStr} className="mb-1">
-                        <DateHeader
-                            dateStr={dateStr}
-                            income={income}
-                            expense={expense}
-                            onAddClick={handleAddForDate}
-                        />
-
-                        <div className="">
-                            {trans.map((t, index) => {
-                                const category = categoryMap.get(t.categoryId);
-                                const subcategory = subcategoryMap.get(t.subcategoryId);
-
-                                // Project Tag (Show only the first one)
-                                const projectTagId = t.tags && t.tags.length > 0 ? t.tags[0] : null;
-                                const projectTag = projectTagId ? projectTagMap.get(projectTagId) : null;
-
-                                return (
-                                    <TransactionItem
-                                        key={t.id}
-                                        t={t}
-                                        category={category}
-                                        subcategory={subcategory}
-                                        projectTag={projectTag}
-                                        isLast={index === trans.length - 1}
-                                        onEditClick={handleEdit}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </div>
-                ))}
-
-                {groupedTransactions.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-60 text-gray-300">
-                        <span className="text-6xl mb-4 opacity-50">📅</span>
-                        <span>No records found</span>
-                    </div>
+            <div className="relative flex-1 min-h-0">
+                {groupedTransactions.length > 0 && (
+                    <DateScrubber
+                        month={currentMonth}
+                        datesWithRecords={datesWithRecords}
+                        onSelect={handleJumpToDate}
+                    />
                 )}
+
+                <div ref={listRef} className="h-full overflow-y-auto pl-6 pr-4 pb-24 pt-2">
+                    {groupedTransactions.map(([dateStr, { transactions: trans, income, expense }]) => (
+                        <div key={dateStr} id={`date-${dateStr}`} className="mb-1">
+                            <DateHeader
+                                dateStr={dateStr}
+                                income={income}
+                                expense={expense}
+                                onAddClick={handleAddForDate}
+                            />
+
+                            <div className="">
+                                {trans.map((t, index) => {
+                                    const category = categoryMap.get(t.categoryId);
+                                    const subcategory = subcategoryMap.get(t.subcategoryId);
+
+                                    // Project Tag (Show only the first one)
+                                    const projectTagId = t.tags && t.tags.length > 0 ? t.tags[0] : null;
+                                    const projectTag = projectTagId ? projectTagMap.get(projectTagId) : null;
+
+                                    return (
+                                        <TransactionItem
+                                            key={t.id}
+                                            t={t}
+                                            category={category}
+                                            subcategory={subcategory}
+                                            projectTag={projectTag}
+                                            isLast={index === trans.length - 1}
+                                            onEditClick={handleEdit}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+
+                    {groupedTransactions.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-60 text-gray-300">
+                            <span className="text-6xl mb-4 opacity-50">📅</span>
+                            <span>No records found</span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <MonthPicker

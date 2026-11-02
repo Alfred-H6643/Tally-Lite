@@ -9,7 +9,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor-firebase': ['firebase/app', 'firebase/firestore', 'firebase/auth'],
-          'vendor-charts': ['recharts'],
           'vendor-motion': ['framer-motion'],
         }
       }

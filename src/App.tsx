@@ -1,40 +1,76 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 // Deployment trigger: 2026-02-02
 import { BrowserRouter as Router, useRoutes, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Dashboard from './components/Dashboard';
-import Settings from './components/Settings';
-import CategorySettings from './components/CategorySettings';
-import ProjectSettings from './components/ProjectSettings';
-import BudgetSettings from './components/BudgetSettings';
-import Report from './components/Report';
-import SearchTransactions from './components/SearchTransactions';
 import AddTransaction from './components/AddTransaction';
 import BottomNavigation from './components/BottomNavigation';
 import Login from './components/Login';
-import AdminSettings from './components/AdminSettings';
-import AccountSettings from './components/AccountSettings';
-import BatchReclassify from './components/BatchReclassify';
 import { AnimatePresence } from 'framer-motion';
 import { useFirebaseAuth } from './hooks/useFirebaseAuth';
 import { useAppContext } from './context/AppContext';
+
+// 首頁以外的頁面用到才載入，讓開啟 app 時不必下載圖表與設定頁
+const pageLoaders = {
+  Report: () => import('./components/Report'),
+  SearchTransactions: () => import('./components/SearchTransactions'),
+  Settings: () => import('./components/Settings'),
+  AccountSettings: () => import('./components/AccountSettings'),
+  CategorySettings: () => import('./components/CategorySettings'),
+  BudgetSettings: () => import('./components/BudgetSettings'),
+  ProjectSettings: () => import('./components/ProjectSettings'),
+  AdminSettings: () => import('./components/AdminSettings'),
+  BatchReclassify: () => import('./components/BatchReclassify'),
+};
+
+const Report = lazy(pageLoaders.Report);
+const SearchTransactions = lazy(pageLoaders.SearchTransactions);
+const Settings = lazy(pageLoaders.Settings);
+const AccountSettings = lazy(pageLoaders.AccountSettings);
+const CategorySettings = lazy(pageLoaders.CategorySettings);
+const BudgetSettings = lazy(pageLoaders.BudgetSettings);
+const ProjectSettings = lazy(pageLoaders.ProjectSettings);
+const AdminSettings = lazy(pageLoaders.AdminSettings);
+const BatchReclassify = lazy(pageLoaders.BatchReclassify);
+
+// 首頁載入後等 2 秒，於背景預先下載其他頁面，切換時不用等
+const PRELOAD_DELAY_MS = 2000;
+
+const page = (element: React.ReactNode) => (
+  <Suspense
+    fallback={
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    }
+  >
+    {element}
+  </Suspense>
+);
 
 // 認證後的應用程式內容
 const AuthenticatedApp: React.FC = () => {
   const { isModalOpen, closeModal, openModal, editingTransaction } = useAppContext();
   const location = useLocation();
 
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      Object.values(pageLoaders).forEach(load => load().catch(() => undefined));
+    }, PRELOAD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   const element = useRoutes([
     { path: "/", element: <Dashboard /> },
-    { path: "/report", element: <Report /> },
-    { path: "/report/search", element: <SearchTransactions /> },
-    { path: "/settings", element: <Settings /> },
-    { path: "/settings/account", element: <AccountSettings /> },
-    { path: "/settings/categories", element: <CategorySettings /> },
-    { path: "/settings/budgets", element: <BudgetSettings /> },
-    { path: "/settings/projects", element: <ProjectSettings /> },
-    { path: "/settings/admin", element: <AdminSettings /> },
-    { path: "/settings/batch-reclassify", element: <BatchReclassify /> },
+    { path: "/report", element: page(<Report />) },
+    { path: "/report/search", element: page(<SearchTransactions />) },
+    { path: "/settings", element: page(<Settings />) },
+    { path: "/settings/account", element: page(<AccountSettings />) },
+    { path: "/settings/categories", element: page(<CategorySettings />) },
+    { path: "/settings/budgets", element: page(<BudgetSettings />) },
+    { path: "/settings/projects", element: page(<ProjectSettings />) },
+    { path: "/settings/admin", element: page(<AdminSettings />) },
+    { path: "/settings/batch-reclassify", element: page(<BatchReclassify />) },
     { path: "*", element: <Dashboard /> }, // 任何未知路由都導向主畫面
   ]);
 

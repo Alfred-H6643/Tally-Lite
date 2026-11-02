@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
-import { TransactionReportItem } from './Report';
+import { TransactionReportItem } from './TransactionReportItem';
 import { compareTransactionsDesc } from '../utils/transactionOrder';
 
 const SearchTransactions: React.FC = () => {

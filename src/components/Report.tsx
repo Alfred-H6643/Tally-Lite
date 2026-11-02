@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import MonthPicker from './MonthPicker';
 import { convertAmountToTWD, formatAmount } from '../utils/currency';
 import { compareTransactionsDesc } from '../utils/transactionOrder';
+import type { TransactionReportItemProps } from './TransactionReportItem';
 
 type ViewMode = 'month' | 'year' | 'custom';
 type TransactionType = 'expense' | 'income' | 'budget';
@@ -149,6 +150,32 @@ const YTDProgressBar: React.FC<{ progress: YTDProgress; compact?: boolean }> = (
     );
 };
 
+const BUDGET_GRID_CELLS = 12;
+const BUDGET_GRID_FULL_CELLS = 10;
+
+/**
+ * 預算使用量格狀條：12 格代表 10%～120%，每滿 10% 才填一格（15% 只填 1 格），
+ * 120% 以上維持 12 格全滿。花費超過預算時，已填滿的格子轉紅。
+ * 第 10、11 格之間的直線標出 100% 的位置。
+ */
+const BudgetGridBar: React.FC<{ spent: number; budget: number }> = ({ spent, budget }) => {
+    const filled = budget > 0
+        ? Math.max(0, Math.min(BUDGET_GRID_CELLS, Math.floor((spent * 10) / budget)))
+        : spent > 0 ? BUDGET_GRID_CELLS : 0;
+    const filledColor = spent > budget ? 'bg-red-500' : 'bg-blue-500';
+
+    return (
+        <div className="flex items-center gap-0.5">
+            {Array.from({ length: BUDGET_GRID_CELLS }, (_, i) => (
+                <React.Fragment key={i}>
+                    {i === BUDGET_GRID_FULL_CELLS && <div className="w-0.5 h-3.5 mx-0.5 shrink-0 rounded-full bg-gray-600" />}
+                    <div className={`flex-1 h-2 rounded-sm ${i < filled ? filledColor : 'bg-gray-200'}`} />
+                </React.Fragment>
+            ))}
+        </div>
+    );
+};
+
 /**
  * 子分類的上下順序沿用分類設定頁的 Subcategory.order，而非金額大小。
  */
@@ -159,48 +186,29 @@ const bySubcategoryOrder = (
 
 // --- Memoized Report List Components ---
 
-export interface TransactionReportItemProps {
-    transaction: any;
-    projectTags: any[];
-    onEditClick: (t: any) => void;
-    /** When provided, replaces the default note line with this single line (caller composes it, e.g. "分類 › 子分類 › note"). */
-    subtitle?: string;
-}
-
-export const TransactionReportItem = React.memo(({ transaction, projectTags, onEditClick, subtitle }: TransactionReportItemProps) => {
+/** 分類明細裡的單行交易：日期、備註、金額，資訊密度比搜尋頁的 TransactionReportItem 高。 */
+const CompactTransactionRow = React.memo(({ transaction, projectTags, onEditClick }: TransactionReportItemProps) => {
     const handleEdit = React.useCallback(() => {
         onEditClick(transaction);
     }, [onEditClick, transaction]);
 
+    const tag = transaction.tags?.length > 0
+        ? projectTags.find(p => p.id === transaction.tags[0])
+        : null;
+
     return (
         <div
             onClick={handleEdit}
-            className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs cursor-pointer active:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 pl-12 pr-4 py-2 text-[13px] text-gray-500 cursor-pointer active:bg-gray-100 transition-colors"
         >
-            <div className="flex-1 min-w-0">
-                <div className="text-gray-600 flex items-center gap-2">
-                    {format(new Date(transaction.date), 'yyyy/MM/dd')}
-                    {transaction.tags && transaction.tags.length > 0 && (() => {
-                        const tagId = transaction.tags[0];
-                        // Using tagId with any map or array lookup
-                        const tag = projectTags.find(p => p.id === tagId);
-                        return tag ? (
-                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium border border-blue-200">
-                                <span>🏷️</span>
-                                {tag.name}
-                            </span>
-                        ) : null;
-                    })()}
-                </div>
-                {subtitle ? (
-                    <div className="text-gray-500 truncate">{subtitle}</div>
-                ) : (
-                    transaction.note && (
-                        <div className="text-gray-400 truncate">{transaction.note}</div>
-                    )
-                )}
-            </div>
-            <div className="text-right ml-2">
+            <span className="w-9 shrink-0 tabular-nums">{format(new Date(transaction.date), 'M/d')}</span>
+            <span className="flex-1 min-w-0 truncate">{transaction.note}</span>
+            {tag && (
+                <span className="shrink-0 max-w-20 truncate px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-600 text-[10px] font-medium">
+                    {tag.name}
+                </span>
+            )}
+            <div className="shrink-0 text-right tabular-nums">
                 {formatAmount(transaction.amount, transaction.currency)}
                 {transaction.currency && transaction.currency !== 'TWD' && (
                     <div className="text-[10px] text-gray-400">
@@ -250,61 +258,59 @@ const SubcategoryReportItem = React.memo(({
         onToggle(subcategory.id);
     }, [onToggle, subcategory.id]);
 
+    const budgetRemaining = subBudget !== null && currentPeriodExpense !== undefined
+        ? subBudget - currentPeriodExpense
+        : null;
+
     return (
-        <div className="mb-2 last:mb-0">
+        <div>
             {/* Subcategory Header */}
             <div
-                className="p-3 bg-white rounded-lg active:bg-gray-50 cursor-pointer transition-colors"
+                className="pl-9 pr-3 py-2.5 active:bg-gray-100 cursor-pointer transition-colors"
                 onClick={handleToggle}
             >
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {/* Hide arrow in budget mode */}
+                <div className="flex items-baseline gap-2">
+                    <span className="flex-1 min-w-0 truncate text-sm text-gray-700">
+                        {subcategory.name}
                         {transactionType !== 'budget' && (
-                            <span className="text-xs text-gray-400">
-                                {isExpanded ? '▼' : '▶'}
+                            <span className="ml-2 text-xs text-gray-400">{subTransactions.length} 筆</span>
+                        )}
+                    </span>
+                    {transactionType === 'budget' && budgetRemaining !== null ? (
+                        <span className="shrink-0 text-sm text-gray-700 tabular-nums">
+                            <span className={`mr-1.5 text-[10px] font-medium ${budgetRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {budgetRemaining >= 0 ? '剩餘' : '超支'}
+                            </span>
+                            {Math.abs(budgetRemaining).toLocaleString()}
+                        </span>
+                    ) : (
+                        <span className="shrink-0 text-sm text-gray-700 tabular-nums">{total.toLocaleString()}</span>
+                    )}
+                </div>
+
+                {subBudget !== null && (
+                    <div className="flex items-center justify-between mt-0.5 text-xs text-gray-400">
+                        <span>
+                            預算: ${subBudget.toLocaleString()}
+                            {/* Hide 100% in budget mode */}
+                            {transactionType !== 'budget' && (
+                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                    ? 'bg-red-100 text-red-600'
+                                    : usagePercent === 100
+                                        ? 'bg-green-100 text-green-600'
+                                        : 'bg-gray-100 text-gray-500'
+                                    }`}>
+                                    {usagePercent}%
+                                </span>
+                            )}
+                        </span>
+                        {subRemaining !== null && transactionType !== 'budget' && (
+                            <span className={subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}>
+                                {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
                             </span>
                         )}
-                        <div>
-                            <div className="text-sm font-medium text-gray-700">{subcategory.name}</div>
-                            {subBudget !== null && (
-                                <div className="text-xs text-gray-400 mt-0.5">
-                                    預算: ${subBudget.toLocaleString()}
-                                    {/* Hide 100% in budget mode */}
-                                    {transactionType !== 'budget' && (
-                                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
-                                            ? 'bg-red-100 text-red-600'
-                                            : usagePercent === 100
-                                                ? 'bg-green-100 text-green-600'
-                                                : 'bg-gray-100 text-gray-500'
-                                            }`}>
-                                            {usagePercent}%
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
                     </div>
-                    <div className="text-right">
-                        {transactionType === 'budget' && currentPeriodExpense !== undefined && subBudget !== null ? (
-                            <>
-                                <div className={`text-[10px] font-medium ${subBudget - currentPeriodExpense >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    {subBudget - currentPeriodExpense >= 0 ? '剩餘' : '超支'}
-                                </div>
-                                <div className="text-sm font-semibold text-gray-700">
-                                    ${Math.abs(subBudget - currentPeriodExpense).toLocaleString()}
-                                </div>
-                            </>
-                        ) : (
-                            <div className="text-sm font-semibold text-gray-700">${total.toLocaleString()}</div>
-                        )}
-                        {subRemaining !== null && transactionType !== 'budget' && (
-                            <div className={`text-xs ${subRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {subRemaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(subRemaining).toLocaleString()}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                )}
 
                 {showYTDBar && <YTDProgressBar progress={ytdProgress} compact />}
             </div>
@@ -317,10 +323,10 @@ const SubcategoryReportItem = React.memo(({
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="mt-2 ml-6 space-y-1"
+                        className="overflow-hidden"
                     >
                         {subTransactions.map(transaction => (
-                            <TransactionReportItem
+                            <CompactTransactionRow
                                 key={transaction.id}
                                 transaction={transaction}
                                 projectTags={projectTags}
@@ -336,6 +342,7 @@ const SubcategoryReportItem = React.memo(({
 
 interface CategoryReportItemProps {
     item: ChartDataItem;
+    totalValue: number;
     transactionType: TransactionType;
     isExpanded: boolean;
     onToggle: (id: string) => void;
@@ -350,6 +357,7 @@ interface CategoryReportItemProps {
 
 const CategoryReportItem = React.memo(({
     item,
+    totalValue,
     transactionType,
     isExpanded,
     onToggle,
@@ -364,7 +372,6 @@ const CategoryReportItem = React.memo(({
     const budget = item.budget;
     const remaining = budget !== null ? budget - item.value : null;
 
-    const percent = budget ? Math.min(100, (item.value / budget) * 100) : 0;
     const usagePercent = budget ? Math.round((item.value / budget) * 100) : 0;
 
     // 分類列本身顯示的是「本期預算/剩餘」；YTD 只在月視角以進度條呈現。
@@ -374,76 +381,65 @@ const CategoryReportItem = React.memo(({
         onToggle(item.categoryId);
     }, [onToggle, item.categoryId]);
 
+    const sharePercent = totalValue > 0 ? Math.round((item.value / totalValue) * 100) : 0;
+    const budgetRemaining = budget !== null && item.currentPeriodExpense !== undefined
+        ? budget - item.currentPeriodExpense
+        : null;
+
     return (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div>
             {/* Category Header */}
             <div
-                className="p-4 cursor-pointer active:bg-gray-100 transition-colors"
+                className="px-3 py-3.5 cursor-pointer active:bg-gray-100 transition-colors"
                 onClick={handleToggle}
             >
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: `${item.color}20`, color: item.color }}>
-                            {item.icon}
-                        </div>
-                        <div>
-                            <div className="font-bold text-gray-800 flex items-center gap-2">
-                                {item.name}
-                                <span className="text-xs text-gray-400">
-                                    {isExpanded ? '▼' : '▶'}
-                                </span>
-                            </div>
-                            {budget !== null && (
-                                <div className="text-xs text-gray-500">
-                                    預算: ${budget.toLocaleString()}
-                                    {/* Hide 100% label in budget mode */}
-                                    {transactionType !== 'budget' && (
-                                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
-                                            ? 'bg-red-100 text-red-600'
-                                            : usagePercent === 100
-                                                ? 'bg-green-100 text-green-600'
-                                                : 'bg-gray-100 text-gray-500'
-                                            }`}>
-                                            {usagePercent}%
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        {transactionType === 'budget' && item.currentPeriodExpense !== undefined && budget !== null ? (
-                            (() => {
-                                const rem = budget - item.currentPeriodExpense;
-                                return (
-                                    <>
-                                        {/* 與費用 tab 一致：主要數字固定黑色，由標籤負責綠(剩餘)/紅(超支) */}
-                                        <div className={`text-xs font-medium mb-0.5 ${rem >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                            {rem >= 0 ? '剩餘' : '超支'}
-                                        </div>
-                                        <div className="font-bold text-gray-800">
-                                            ${Math.abs(rem).toLocaleString()}
-                                        </div>
-                                    </>
-                                );
-                            })()
-                        ) : (
-                            <div className="font-bold text-gray-800">${item.value.toLocaleString()}</div>
-                        )}
-                        {remaining !== null && transactionType !== 'budget' && (
-                            <div className={`text-xs font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {remaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(remaining).toLocaleString()}
-                            </div>
-                        )}
-                    </div>
+                <div className="flex items-center gap-3">
+                    <span className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-xl leading-none shrink-0">{item.icon}</span>
+                    <span className="flex-1 min-w-0 truncate font-bold text-gray-800">{item.name}</span>
+                    {transactionType === 'budget' && budgetRemaining !== null ? (
+                        <span className="shrink-0 font-bold text-gray-800 tabular-nums">
+                            {/* 與費用 tab 一致：主要數字固定黑色，由標籤負責綠(剩餘)/紅(超支) */}
+                            <span className={`mr-1.5 text-xs font-medium ${budgetRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {budgetRemaining >= 0 ? '剩餘' : '超支'}
+                            </span>
+                            {Math.abs(budgetRemaining).toLocaleString()}
+                        </span>
+                    ) : (
+                        <>
+                            <span className="shrink-0 text-xs text-gray-400 tabular-nums">{sharePercent}%</span>
+                            <span className="shrink-0 w-16 text-right font-bold text-gray-800 tabular-nums">{item.value.toLocaleString()}</span>
+                        </>
+                    )}
                 </div>
-                {showYTDBar && <YTDProgressBar progress={ytdProgress} />}
+
+                {budget !== null && (
+                    <div className="flex items-center justify-between mt-2 pl-4 text-xs text-gray-500">
+                        <span>
+                            預算: ${budget.toLocaleString()}
+                            {/* Hide 100% label in budget mode */}
+                            {transactionType !== 'budget' && (
+                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${usagePercent > 100
+                                    ? 'bg-red-100 text-red-600'
+                                    : usagePercent === 100
+                                        ? 'bg-green-100 text-green-600'
+                                        : 'bg-gray-100 text-gray-500'
+                                    }`}>
+                                    {usagePercent}%
+                                </span>
+                            )}
+                        </span>
+                        {remaining !== null && transactionType !== 'budget' && (
+                            <span className={`font-medium ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {remaining >= 0 ? '剩餘: ' : '超支: '}${Math.abs(remaining).toLocaleString()}
+                            </span>
+                        )}
+                    </div>
+                )}
+                {showYTDBar && <div className="pl-4"><YTDProgressBar progress={ytdProgress} /></div>}
                 {budget !== null && transactionType !== 'budget' && (
-                    <div className="w-full bg-gray-100 rounded-full h-2 mt-2 overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all ${remaining && remaining < 0 ? 'bg-red-500' : 'bg-blue-500'}`}
-                            style={{ width: `${percent}%` }}
-                        />
+                    <div className="pl-4 mt-2">
+                        <BudgetGridBar spent={item.value} budget={budget} />
                     </div>
                 )}
             </div>
@@ -456,30 +452,28 @@ const CategoryReportItem = React.memo(({
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="border-t border-gray-100"
+                        className="overflow-hidden bg-gray-50"
                     >
-                        <div className="px-4 py-2 bg-gray-50">
-                            {subcategoryData.map(({ subcategory, total, subTransactions }) => (
-                                <SubcategoryReportItem
-                                    key={subcategory.id}
-                                    subcategory={subcategory}
-                                    total={total}
-                                    subBudget={getSubcategoryBudget(subcategory.id)}
-                                    isExpanded={expandedSubcategories.has(subcategory.id)}
-                                    onToggle={toggleSubcategory}
-                                    transactionType={transactionType}
-                                    subTransactions={subTransactions}
-                                    projectTags={projectTags}
-                                    ytdProgress={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.ytdProgress || null}
-                                    currentPeriodExpense={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.currentPeriodExpense}
-                                    onEditClick={onEditClick}
-                                />
-                            ))}
-                        </div>
+                        {subcategoryData.map(({ subcategory, total, subTransactions }) => (
+                            <SubcategoryReportItem
+                                key={subcategory.id}
+                                subcategory={subcategory}
+                                total={total}
+                                subBudget={getSubcategoryBudget(subcategory.id)}
+                                isExpanded={expandedSubcategories.has(subcategory.id)}
+                                onToggle={toggleSubcategory}
+                                transactionType={transactionType}
+                                subTransactions={subTransactions}
+                                projectTags={projectTags}
+                                ytdProgress={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.ytdProgress || null}
+                                currentPeriodExpense={subcategoryData.find(d => d.subcategory.id === subcategory.id)?.currentPeriodExpense}
+                                onEditClick={onEditClick}
+                            />
+                        ))}
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div >
+        </div>
     );
 });
 
@@ -1202,22 +1196,25 @@ const Report: React.FC = () => {
                             <h3 className="font-bold text-gray-700">Details</h3>
                             <span className="text-xs text-gray-500 font-medium">幣別：TWD</span>
                         </div>
-                        {detailListData.map((item) => (
-                            <CategoryReportItem
-                                key={item.categoryId}
-                                item={item}
-                                transactionType={transactionType}
-                                isExpanded={expandedCategories.has(item.categoryId)}
-                                onToggle={toggleCategory}
-                                subcategoryData={allSubcategoryData.get(item.categoryId) || []}
-                                getSubcategoryBudget={getSubcategoryBudget}
-                                expandedSubcategories={expandedSubcategories}
-                                toggleSubcategory={toggleSubcategory}
-                                ytdProgress={item.ytdProgress ?? null}
-                                projectTags={projectTags}
-                                onEditClick={openModal}
-                            />
-                        ))}
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden divide-y divide-gray-100">
+                            {detailListData.map((item) => (
+                                <CategoryReportItem
+                                    key={item.categoryId}
+                                    item={item}
+                                    totalValue={totalExpenses}
+                                    transactionType={transactionType}
+                                    isExpanded={expandedCategories.has(item.categoryId)}
+                                    onToggle={toggleCategory}
+                                    subcategoryData={allSubcategoryData.get(item.categoryId) || []}
+                                    getSubcategoryBudget={getSubcategoryBudget}
+                                    expandedSubcategories={expandedSubcategories}
+                                    toggleSubcategory={toggleSubcategory}
+                                    ytdProgress={item.ytdProgress ?? null}
+                                    projectTags={projectTags}
+                                    onEditClick={openModal}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

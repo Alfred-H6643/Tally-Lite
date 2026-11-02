@@ -107,8 +107,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     role: data.role || 'user',
                     showEmptyDays: data.showEmptyDays ?? true
                 });
-            } else {
-                // 如果 profile 不存在，自動創建一個預設的
+            } else if (!docSnap.metadata.fromCache) {
+                // 伺服器確認 profile 不存在才自動創建預設值；快取沒有不代表不存在，寫入會蓋掉真實資料
                 console.log('Creating default profile for new user');
                 const defaultProfile: UserProfile = {
                     displayName: user?.email?.split('@')[0] || '使用者',

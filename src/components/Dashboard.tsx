@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { format, parseISO, addMonths, subMonths, isSameMonth, startOfMonth, endOfMonth, isToday } from 'date-fns';
-import type { Transaction } from '../types';
+import type { Category, ProjectTag, Subcategory, Transaction } from '../types';
 import { motion } from 'framer-motion';
 
 import MonthPicker from './MonthPicker';
@@ -76,9 +76,9 @@ const DateHeader = React.memo(({ dateStr, income, expense, isNoSpend, onAddClick
 
 interface TransactionItemProps {
     t: Transaction;
-    category: any;
-    subcategory: any;
-    projectTag: any;
+    category?: Category;
+    subcategory?: Subcategory;
+    projectTag?: ProjectTag | null;
     isLast: boolean;
     onEditClick: (t: Transaction) => void;
 }
@@ -165,19 +165,19 @@ const Dashboard: React.FC = () => {
 
     // --- ID Map Lookups for Efficiency (O(1) instead of O(N)) ---
     const categoryMap = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, Category>();
         categories.forEach(c => map.set(c.id, c));
         return map;
     }, [categories]);
 
     const subcategoryMap = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, Subcategory>();
         subcategories.forEach(s => map.set(s.id, s));
         return map;
     }, [subcategories]);
 
     const projectTagMap = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, ProjectTag>();
         projectTags.forEach(p => map.set(p.id, p));
         return map;
     }, [projectTags]);

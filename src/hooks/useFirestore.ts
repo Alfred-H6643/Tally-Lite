@@ -120,7 +120,7 @@ export const useFirestoreCollection = <T extends { id: string }>(
 
         const docRef = doc(db, collectionPath, id);
         // Exclude id from updates to avoid overwriting it (though Firestore ignores it usually)
-        const { id: _, ...dataToUpdate } = updates as any;
+        const { id: _, ...dataToUpdate } = updates;
         return updateDoc(docRef, {
             ...dataToUpdate,
             updatedAt: serverTimestamp()

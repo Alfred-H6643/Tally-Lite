@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User, type IdTokenResult } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { mockDb } from '../services/mockDatabase';
 
@@ -16,7 +16,7 @@ const GUEST_USER: User = {
     tenantId: null,
     delete: async () => { },
     getIdToken: async () => '',
-    getIdTokenResult: async () => ({} as any),
+    getIdTokenResult: async () => ({} as IdTokenResult),
     reload: async () => { },
     toJSON: () => ({}),
     phoneNumber: null,

@@ -8,6 +8,7 @@ import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { mockDb } from '../services/mockDatabase';
 import type { Transaction } from '../types';
+import { getErrorMessage } from '../utils/errors';
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -167,10 +168,10 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
             setStatus('success');
             setProgress('發送成功！');
 
-        } catch (error: any) {
+        } catch (error) {
             console.error('Export error:', error);
             setStatus('error');
-            setErrorMessage(`發送失敗: ${error.text || error.message || '未知錯誤'}`);
+            setErrorMessage(`發送失敗: ${getErrorMessage(error) || '未知錯誤'}`);
         }
     };
 

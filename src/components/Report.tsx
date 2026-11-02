@@ -9,6 +9,7 @@ import MonthPicker from './MonthPicker';
 import { convertAmountToTWD, formatAmount } from '../utils/currency';
 import { compareTransactionsDesc } from '../utils/transactionOrder';
 import type { TransactionReportItemProps } from './TransactionReportItem';
+import type { Category, ProjectTag, Subcategory, Transaction } from '../types';
 
 type ViewMode = 'month' | 'year' | 'custom';
 type TransactionType = 'expense' | 'income' | 'budget';
@@ -51,9 +52,8 @@ interface CustomBarLabelProps {
     y?: string | number;
     width?: string | number;
     height?: string | number;
-    value?: any; // Recharts can pass various types
+    value?: unknown; // Recharts can pass various types
     chartData: ChartDataItem[];
-    [key: string]: any; // Allow other props from recharts
 }
 
 // Custom Y-axis Tick Component (outside of Report component)
@@ -82,7 +82,7 @@ const CustomYAxisTick: React.FC<CustomYAxisTickProps> = ({ x = 0, y = 0, payload
 
 // Custom Bar Label Component (outside of Report component)
 const CustomBarLabel: React.FC<CustomBarLabelProps> = ({ x = 0, y = 0, width = 0, height = 0, value, chartData }) => {
-    if (value === null || value === undefined) return null;
+    if (typeof value !== 'number') return null;
 
     const item = chartData.find(d => d.value === value);
     const budget = item?.budget ?? null;
@@ -192,9 +192,8 @@ const CompactTransactionRow = React.memo(({ transaction, projectTags, onEditClic
         onEditClick(transaction);
     }, [onEditClick, transaction]);
 
-    const tag = transaction.tags?.length > 0
-        ? projectTags.find(p => p.id === transaction.tags[0])
-        : null;
+    const tagId = transaction.tags?.[0];
+    const tag = tagId ? projectTags.find(p => p.id === tagId) : null;
 
     return (
         <div
@@ -220,16 +219,25 @@ const CompactTransactionRow = React.memo(({ transaction, projectTags, onEditClic
     );
 });
 
+interface SubcategoryReportData {
+    subcategory: Subcategory;
+    total: number;
+    subTransactions: Transaction[];
+    hasBudget?: boolean;
+    ytdProgress?: YTDProgress | null;
+    currentPeriodExpense?: number;
+}
+
 interface SubcategoryReportItemProps {
-    subcategory: any;
+    subcategory: Subcategory;
     total: number;
     subBudget: number | null;
     isExpanded: boolean;
     onToggle: (id: string) => void;
     transactionType: TransactionType;
-    subTransactions: any[];
-    projectTags: any[];
-    onEditClick: (t: any) => void;
+    subTransactions: Transaction[];
+    projectTags: ProjectTag[];
+    onEditClick: (t: Transaction) => void;
     ytdProgress: YTDProgress | null;
     currentPeriodExpense?: number;
 }
@@ -346,12 +354,12 @@ interface CategoryReportItemProps {
     transactionType: TransactionType;
     isExpanded: boolean;
     onToggle: (id: string) => void;
-    subcategoryData: any[];
+    subcategoryData: SubcategoryReportData[];
     getSubcategoryBudget: (id: string) => number | null;
     expandedSubcategories: Set<string>;
     toggleSubcategory: (id: string) => void;
-    projectTags: any[];
-    onEditClick: (t?: any, date?: Date) => void;
+    projectTags: ProjectTag[];
+    onEditClick: (t?: Transaction, date?: Date) => void;
     ytdProgress: YTDProgress | null;
 }
 
@@ -504,13 +512,13 @@ const Report: React.FC = () => {
 
     // --- ID Map Lookups for Efficiency (O(1) instead of O(N)) ---
     const categoryMap = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, Category>();
         categories.forEach(c => map.set(c.id, c));
         return map;
     }, [categories]);
 
     const subcategoryMap = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, Subcategory>();
         subcategories.forEach(s => map.set(s.id, s));
         return map;
     }, [subcategories]);
@@ -725,7 +733,7 @@ const Report: React.FC = () => {
     const chartData = useMemo(() => {
         if (transactionType === 'budget') {
             // Handle Budget View
-            const data: any[] = [];
+            const data: ChartDataItem[] = [];
             categories.forEach(category => {
                 const budget = getCategoryBudget(category.id);
                 if (budget !== null) {
@@ -812,7 +820,7 @@ const Report: React.FC = () => {
 
     // Precompute subcategory data for all categories to keep CategoryReportItem stable
     const allSubcategoryData = useMemo(() => {
-        const map = new Map<string, any[]>();
+        const map = new Map<string, SubcategoryReportData[]>();
         categories.forEach(cat => {
             const categoryId = cat.id;
 
@@ -841,7 +849,7 @@ const Report: React.FC = () => {
             }
 
             const categoryTransactions = getRelevantTransactions(categoryId);
-            const subcategoryMapData = new Map<string, { subcategory: any; total: number; subTransactions: any[] }>();
+            const subcategoryMapData = new Map<string, SubcategoryReportData>();
 
             categoryTransactions.forEach(t => {
                 let subcategory = subcategoryMap.get(t.subcategoryId);

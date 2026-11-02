@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { differenceInDays } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
+import { getErrorMessage } from '../utils/errors';
 
 interface BatchDeleteModalProps {
     isOpen: boolean;
@@ -56,8 +57,8 @@ const BatchDeleteModal: React.FC<BatchDeleteModalProps> = ({ isOpen, onClose }) 
             setStatus('deleting');
             await batchDeleteTransactions(toDelete.map(t => t.id));
             setStatus('success');
-        } catch (error: any) {
-            setErrorMessage(`刪除失敗: ${error.message}`);
+        } catch (error) {
+            setErrorMessage(`刪除失敗: ${getErrorMessage(error)}`);
             setStatus('idle');
             setConfirmCount(0);
         }

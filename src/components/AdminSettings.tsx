@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { initializeFirestoreData, migrateLocalStorageToFirebase } from '../utils/dataMigration';
 import ConfirmDialog from './ConfirmDialog';
+import { getErrorMessage } from '../utils/errors';
 
 const AdminSettings: React.FC = () => {
     const navigate = useNavigate();
@@ -58,8 +59,8 @@ const AdminSettings: React.FC = () => {
                 try {
                     await initializeFirestoreData(user.uid);
                     setMessage('✅ 初始化成功！已建立預設分類。');
-                } catch (error: any) {
-                    setMessage(`❌ 錯誤: ${error.message}`);
+                } catch (error) {
+                    setMessage(`❌ 錯誤: ${getErrorMessage(error)}`);
                 } finally {
                     setLoading(false);
                 }
@@ -80,8 +81,8 @@ const AdminSettings: React.FC = () => {
                 try {
                     await migrateLocalStorageToFirebase(user.uid);
                     setMessage('✅ 遷移成功！');
-                } catch (error: any) {
-                    setMessage(`❌ 錯誤: ${error.message}`);
+                } catch (error) {
+                    setMessage(`❌ 錯誤: ${getErrorMessage(error)}`);
                 } finally {
                     setLoading(false);
                 }
@@ -145,8 +146,8 @@ const AdminSettings: React.FC = () => {
                     }
 
                     setMessage(`✅ 修復完成！成功: ${fixedCount} 筆，失敗: ${failedCount} 筆`);
-                } catch (error: any) {
-                    setMessage(`❌ 錯誤: ${error.message}`);
+                } catch (error) {
+                    setMessage(`❌ 錯誤: ${getErrorMessage(error)}`);
                 } finally {
                     setLoading(false);
                 }
@@ -184,8 +185,8 @@ const AdminSettings: React.FC = () => {
                     }
 
                     setMessage(`✅ 清除完成！共刪除 ${deletedCount} 筆幽靈預算。`);
-                } catch (error: any) {
-                    setMessage(`❌ 錯誤: ${error.message}`);
+                } catch (error) {
+                    setMessage(`❌ 錯誤: ${getErrorMessage(error)}`);
                 } finally {
                     setLoading(false);
                 }
@@ -257,9 +258,9 @@ const AdminSettings: React.FC = () => {
                 alert(`No duplicates found.\n\nDebug Info:\n${debugInfo}`);
             }
             setMessage('✅ 分析完成，請查看跳出視窗');
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            setMessage(`❌ Error: ${error.message}`);
+            setMessage(`❌ Error: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
@@ -310,9 +311,9 @@ const AdminSettings: React.FC = () => {
                 });
                 setMessage(`✅ 已創建 profile 並設定角色為「${role === 'admin' ? '管理員' : '一般用戶'}」`);
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('設定角色失敗:', error);
-            setMessage(`❌ 設定失敗: ${error.message}`);
+            setMessage(`❌ 設定失敗: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }

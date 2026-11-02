@@ -4,7 +4,7 @@ import type { Category, Subcategory, Transaction, ProjectTag, Budget, NoSpendDay
 import { useFirebaseAuth } from '../hooks/useFirebaseAuth';
 import { useFirestoreCollection } from '../hooks/useFirestore';
 import { db } from '../services/firebase';
-import { doc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch, orderBy, where, onSnapshot, type QueryConstraint } from 'firebase/firestore';
 import { mockDb } from '../services/mockDatabase';
 import { getMonthlyBudget } from '../utils/budget';
 
@@ -214,7 +214,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, []);
 
     const transactionConstraints = React.useMemo(() => {
-        const constraints: any[] = [orderBy('date', 'desc')];
+        const constraints: QueryConstraint[] = [orderBy('date', 'desc')];
         if (subscribedFilter.start) {
             constraints.push(where('date', '>=', subscribedFilter.start));
         }

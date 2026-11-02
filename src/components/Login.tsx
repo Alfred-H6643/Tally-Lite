@@ -23,7 +23,7 @@ const Login: React.FC = () => {
         setError('');
         try {
             await signInWithEmailAndPassword(auth, email, password);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Login error:', err);
             setError('登入失敗，請檢查帳號密碼');
         } finally {

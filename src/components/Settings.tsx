@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Transaction } from '../types';
 import ExportModal from './ExportModal';
 import BatchDeleteModal from './BatchDeleteModal';
+import { getErrorMessage } from '../utils/errors';
 
 const Settings: React.FC = () => {
     const navigate = useNavigate();
@@ -119,32 +120,32 @@ const Settings: React.FC = () => {
         setLoading(true);
         setMessage(`正在解析 ${file.name}...`);
 
-        Papa.parse(file, {
+        Papa.parse<Record<string, string>>(file, {
             header: true,
             skipEmptyLines: true,
             encoding: 'UTF-8',
             complete: async (results) => {
                 try {
                     await processImportedData(results.data, file.name);
-                } catch (err: any) {
+                } catch (err) {
                     console.error("Import error", err);
-                    setMessage(`匯入失敗(${file.name}): ${err.message}`);
+                    setMessage(`匯入失敗(${file.name}): ${getErrorMessage(err)}`);
                 } finally {
                     setLoading(false);
                 }
             },
             error: (err) => {
                 console.error("CSV Parse Error", err);
-                setMessage(`CSV 解析錯誤(${file.name}): ${err.message}`);
+                setMessage(`CSV 解析錯誤(${file.name}): ${getErrorMessage(err)}`);
                 setLoading(false);
             }
         });
     };
 
-    const processImportedData = async (rows: any[], fileName: string) => {
-        const validRows: any[] = [];
+    const processImportedData = async (rows: Record<string, string>[], fileName: string) => {
+        const validRows: Record<string, string>[] = [];
         for (const row of rows) {
-            if (Object.values(row).some((val: any) => typeof val === 'string' && val.includes('=== REFERENCE DATA'))) {
+            if (Object.values(row).some((val) => typeof val === 'string' && val.includes('=== REFERENCE DATA'))) {
                 break;
             }
             // Basic validation based on new order: Date, Type, Category, Subcategory, Note, Tags, Currency, Amount

@@ -44,15 +44,16 @@ const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
         try {
             await createUserWithEmailAndPassword(auth, email, password);
             // 註冊成功後會自動登入，App.tsx 會處理導向
-        } catch (err: any) {
+        } catch (err) {
             console.error('Registration error:', err);
 
             // Firebase 錯誤訊息翻譯
-            if (err.code === 'auth/email-already-in-use') {
+            const code = (err as { code?: string }).code;
+            if (code === 'auth/email-already-in-use') {
                 setError('此 Email 已被使用');
-            } else if (err.code === 'auth/invalid-email') {
+            } else if (code === 'auth/invalid-email') {
                 setError('Email 格式不正確');
-            } else if (err.code === 'auth/weak-password') {
+            } else if (code === 'auth/weak-password') {
                 setError('密碼強度不足，請使用更強的密碼');
             } else {
                 setError('註冊失敗，請稍後再試');

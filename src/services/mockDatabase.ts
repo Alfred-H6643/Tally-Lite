@@ -14,10 +14,17 @@ type MockCollection = {
 
 type CollectionName = keyof MockCollection;
 
+/** 各集合共通的欄位，讓通用的增刪改不必區分集合 */
+interface MockDocument {
+    id: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
 class MockDatabase {
     private static instance: MockDatabase;
     private data: MockCollection;
-    private listeners: Map<string, Set<(data: any[]) => void>>;
+    private listeners: Map<string, Set<(data: MockDocument[]) => void>>;
 
     private constructor() {
         this.data = {
@@ -30,6 +37,10 @@ class MockDatabase {
         };
         this.listeners = new Map();
         this.reset();
+    }
+
+    private get documents(): Record<CollectionName, MockDocument[]> {
+        return this.data;
     }
 
     public static getInstance(): MockDatabase {
@@ -220,7 +231,7 @@ class MockDatabase {
         return null;
     }
 
-    public subscribe(path: string, callback: (data: any[]) => void): () => void {
+    public subscribe(path: string, callback: (data: MockDocument[]) => void): () => void {
         const collectionName = this.getCollectionNameFromPath(path);
 
         if (!collectionName) {
@@ -257,7 +268,7 @@ class MockDatabase {
         };
     }
 
-    public async add(path: string, item: any): Promise<any> {
+    public async add(path: string, item: object): Promise<{ id: string }> {
         const collectionName = this.getCollectionNameFromPath(path);
         if (!collectionName) throw new Error(`Invalid mock collection path: ${path}`);
 
@@ -268,16 +279,16 @@ class MockDatabase {
             updatedAt: new Date()
         };
 
-        (this.data[collectionName] as any[]).push(newItem);
+        this.documents[collectionName].push(newItem);
         this.notify(collectionName);
         return { id: newItem.id };
     }
 
-    public async update(path: string, id: string, updates: any): Promise<void> {
+    public async update(path: string, id: string, updates: object): Promise<void> {
         const collectionName = this.getCollectionNameFromPath(path);
         if (!collectionName) throw new Error(`Invalid mock collection path: ${path}`);
 
-        const collection = this.data[collectionName] as any[];
+        const collection = this.documents[collectionName];
         const index = collection.findIndex(item => item.id === id);
 
         if (index !== -1) {
@@ -290,16 +301,16 @@ class MockDatabase {
         const collectionName = this.getCollectionNameFromPath(path);
         if (!collectionName) throw new Error(`Invalid mock collection path: ${path}`);
 
-        const collection = this.data[collectionName] as any[];
-        this.data[collectionName] = collection.filter(item => item.id !== id) as any;
+        const collection = this.documents[collectionName];
+        this.documents[collectionName] = collection.filter(item => item.id !== id);
         this.notify(collectionName);
     }
 
-    public async set(path: string, id: string, item: any): Promise<void> {
+    public async set(path: string, id: string, item: object): Promise<void> {
         const collectionName = this.getCollectionNameFromPath(path);
         if (!collectionName) throw new Error(`Invalid mock collection path: ${path}`);
 
-        const collection = this.data[collectionName] as any[];
+        const collection = this.documents[collectionName];
         const index = collection.findIndex(existing => existing.id === id);
 
         if (index !== -1) {
@@ -310,7 +321,7 @@ class MockDatabase {
         this.notify(collectionName);
     }
 
-    public async get(path: string): Promise<any[]> {
+    public async get(path: string): Promise<MockDocument[]> {
         const collectionName = this.getCollectionNameFromPath(path);
         if (!collectionName) return [];
         const data = [...this.data[collectionName]];

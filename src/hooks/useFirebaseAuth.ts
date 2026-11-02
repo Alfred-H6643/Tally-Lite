@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User, type IdTokenResult } from 'firebase/auth';
 import { auth } from '../services/firebase';
 // mockDb 不再需要手動呼叫：它在首次建立時會自動載入測試資料
 
@@ -15,7 +15,7 @@ const GUEST_USER: User = {
     tenantId: null,
     delete: async () => { },
     getIdToken: async () => '',
-    getIdTokenResult: async () => ({} as any),
+    getIdTokenResult: async () => ({} as IdTokenResult),
     reload: async () => { },
     toJSON: () => ({}),
     phoneNumber: null,

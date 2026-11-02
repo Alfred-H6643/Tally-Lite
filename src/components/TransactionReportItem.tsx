@@ -1,11 +1,12 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { convertAmountToTWD, formatAmount } from '../utils/currency';
+import type { ProjectTag, Transaction } from '../types';
 
 export interface TransactionReportItemProps {
-    transaction: any;
-    projectTags: any[];
-    onEditClick: (t: any) => void;
+    transaction: Transaction;
+    projectTags: ProjectTag[];
+    onEditClick: (t: Transaction) => void;
     /** When provided, replaces the default note line with this single line (caller composes it, e.g. "分類 › 子分類 › note"). */
     subtitle?: string;
 }

@@ -276,7 +276,7 @@ const Dashboard: React.FC = () => {
             const viewEnd = endOfMonth(currentMonth);
 
             // Iterate from day 1 to end of month
-            let iter = new Date(viewStart);
+            const iter = new Date(viewStart);
             while (iter <= viewEnd) {
                 // Stop if date is in the future relative to "now" (today)
                 // Need to compare dates without time component

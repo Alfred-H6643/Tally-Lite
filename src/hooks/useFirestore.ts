@@ -41,7 +41,7 @@ export const useFirestoreCollection = <T extends { id: string }>(
                 // Determine if we need to filter mock data based on constraints
                 // Specifically for transactions date filtering
                 // This is a simplified filtering logic
-                let filteredData = mockData;
+                const filteredData = mockData;
 
                 // Note: We can expand this filter logic as needed if the UI relies entirely on it
                 // For now, passing all data is acceptable for the mock scope or we trust the component filters
